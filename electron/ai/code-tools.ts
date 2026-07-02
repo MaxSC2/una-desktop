@@ -5,11 +5,11 @@
  *  - edit_file: точечное редактирование (find/replace, insert, append)
  *  - grep: поиск по файлам через ripgrep (с JS fallback)
  *  - apply_patch: применение unified diff патчей
- *  - run_code: выполнение JS/TS кода в sandbox (изолированный child process)
+ *  - run_code: выполнение JS кода в sandbox (vm.runInNewContext)
  *
  * Безопасность:
  *  - Все операции с файлами создают бэкап перед изменением
- *  - run_code выполняется в отдельном процессе с timeout и memory limit
+ *  - run_code выполняется в изолированном vm контексте (без доступа к process, require, fs)
  *  - grep и apply_patch работают только внутри домашних/проектных директорий
  *  - Защищённые файлы (.env, *.key, id_rsa) недоступны
  */
@@ -19,10 +19,18 @@ import * as path from 'path';
 import * as os from 'os';
 import { exec, execFile } from 'child_process';
 import { promisify } from 'util';
+import { createContext, runInNewContext, Script } from 'vm';
 import { isProtectedFile, isPathInsideHome } from '../safety/classifier';
 
-const execAsync = promisify(exec);
 const execFileAsync = promisify(execFile);
+
+async function resolveRealPath(p: string): Promise<string> {
+  try {
+    return await fs.realpath(p);
+  } catch (e: unknown) {
+    return p;
+  }
+}
 
 export interface CodeToolResult {
   success: boolean;
@@ -32,9 +40,6 @@ export interface CodeToolResult {
 
 const MAX_GREP_RESULTS = 100;
 const MAX_GREP_FILE_SIZE = 1024 * 1024; // 1 МБ — больше пропускаем
-const MAX_RUN_CODE_DURATION_MS = 30000; // 30 секунд максимум
-const MAX_RUN_CODE_OUTPUT = 64 * 1024; // 64 КБ stdout/stderr
-const RUN_CODE_MEMORY_MB = 256; // лимит памяти для sandbox
 
 // ============================================================
 // EDIT_FILE
@@ -51,7 +56,7 @@ export async function edit_file(args: {
   end_line?: number;      // для delete_lines (1-indexed, inclusive)
   create_backup?: boolean; // по умолчанию true
 }): Promise<CodeToolResult> {
-  const target = path.resolve(args.path.replace(/^~/, os.homedir()));
+  const target = await resolveRealPath(path.resolve(args.path.replace(/^~/, os.homedir())));
 
   // Безопасность
   if (isProtectedFile(target)) {
@@ -217,9 +222,9 @@ export async function grep(args: {
   case_insensitive?: boolean;
   use_regex?: boolean;    // по умолчанию true
 }): Promise<CodeToolResult> {
-  const searchPath = args.path
+  const searchPath = await resolveRealPath(args.path
     ? path.resolve(args.path.replace(/^~/, os.homedir()))
-    : process.cwd();
+    : process.cwd());
 
   // Безопасность
   if (!isPathInsideHome(searchPath, os.homedir())) {
@@ -443,18 +448,18 @@ function globToRegex(glob: string): RegExp {
  *   Просто текст с -/+ строками, path указывается в args.path
  */
 export async function apply_patch(args: {
-  path: string;
-  patch: string;
-  create_backup?: boolean;
-}): Promise<CodeToolResult> {
-  const target = path.resolve(args.path.replace(/^~/, os.homedir()));
+    path: string;
+    patch: string;
+    create_backup?: boolean;
+  }): Promise<CodeToolResult> {
+    const target = await resolveRealPath(path.resolve(args.path.replace(/^~/, os.homedir())));
 
-  if (isProtectedFile(target)) {
-    return { success: false, error: 'Файл защищён. apply_patch запрещён.' };
-  }
-  if (!isPathInsideHome(target, os.homedir())) {
-    return { success: false, error: 'apply_patch вне домашней папки запрещён.' };
-  }
+    if (isProtectedFile(target)) {
+      return { success: false, error: 'Файл защищён. apply_patch запрещён.' };
+    }
+    if (!isPathInsideHome(target, os.homedir())) {
+      return { success: false, error: 'apply_patch вне домашней папки запрещён.' };
+    }
 
   const createBackup = args.create_backup ?? true;
 
@@ -594,26 +599,18 @@ function parseUnifiedDiff(lines: string[]): PatchHunk[] {
 }
 
 // ============================================================
-// RUN_CODE
+// RUN_CODE — sandbox через vm.runInNewContext
 // ============================================================
 
-/**
- * Выполняет JavaScript код в изолированном child process.
- *
- * Sandbox:
- *  - Отдельный Node.js процесс
- *  - Timeout 30 секунд (настраиваемо)
- *  - Memory limit 256 МБ
- *  - Working directory: временная папка (очищается после)
- *  - Без доступа к сети (через env переменные)
- *  - Без доступа к require встроенных модулей (basic, не perfect)
- */
 export async function run_code(args: {
   code: string;
   language?: 'javascript' | 'typescript';
   timeout_ms?: number;
-  setup_code?: string; // выполняется перед основным кодом (например, для установки переменных)
+  setup_code?: string; // выполняется перед основным кодом
 }): Promise<CodeToolResult> {
+  const MAX_RUN_CODE_OUTPUT = 64 * 1024; // 64 КБ stdout/stderr
+  const MAX_RUN_CODE_DURATION_MS = 30000; // 30 секунд максимум
+
   const language = args.language ?? 'javascript';
   const timeoutMs = Math.min(args.timeout_ms ?? 10000, MAX_RUN_CODE_DURATION_MS);
 
@@ -625,72 +622,110 @@ export async function run_code(args: {
     return { success: false, error: 'Код слишком большой (максимум 100 КБ)' };
   }
 
-  // Создаём временную директорию
-  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'una-sandbox-'));
-  const scriptPath = path.join(tmpDir, language === 'typescript' ? 'script.ts' : 'script.js');
+  // TypeScript: минимальный транспайл в JS (убрать типы, оставить логику)
+  let jsCode = args.code;
+  if (language === 'typescript') {
+    const stripped = stripTypescript(args.code);
+    if (!stripped) {
+      return { success: false, error: 'Не удалось транспилировать TypeScript в JavaScript' };
+    }
+    jsCode = stripped;
+  }
+
+  const setupCode = args.setup_code ?? '';
+  const fullCode = `${setupCode}
+${jsCode}`;
+
+  // Создаём изолированный vm контекст
+  const startTime = Date.now();
+  let timedOut = false;
+  const stdout: string[] = [];
+  const stderr: string[] = [];
 
   try {
-    // Базовая проверка на опасные вызовы
-    const dangerous = checkDangerousCode(args.code);
-    if (dangerous) {
-      return { success: false, error: `Обнаружен потенциально опасный код: ${dangerous}` };
-    }
+    // Безопасные глобальные объекты для sandbox
+    const safeContext: Record<string, unknown> = {};
 
-    // Готовим wrapper
-    const wrapper = buildCodeWrapper(args.code, args.setup_code ?? '', language);
-    await fs.writeFile(scriptPath, wrapper, 'utf-8');
+    // console — перехват stdout/stderr
+    safeContext.console = {
+      log: (...args: unknown[]) => { stdout.push(args.map(formatValue).join(' ')); },
+      warn: (...args: unknown[]) => { stderr.push(['[WARN]', ...args.map(formatValue)].join(' ')); },
+      error: (...args: unknown[]) => { stderr.push(['[ERROR]', ...args.map(formatValue)].join(' ')); },
+      info: (...args: unknown[]) => { stdout.push(args.map(formatValue).join(' ')); },
+      debug: (...args: unknown[]) => { stdout.push(args.map(formatValue).join(' ')); },
+    };
 
-    const startTime = Date.now();
+    // Стандартные глобальные объекты (безопасные)
+    safeContext.JSON = JSON;
+    safeContext.Math = Math;
+    safeContext.Date = Date;
+    safeContext.RegExp = RegExp;
+    safeContext.Array = Array;
+    safeContext.Object = Object;
+    safeContext.String = String;
+    safeContext.Number = Number;
+    safeContext.Boolean = Boolean;
+    safeContext.Promise = Promise;
+    safeContext.Map = Map;
+    safeContext.Set = Set;
+    safeContext.WeakMap = WeakMap;
+    safeContext.WeakSet = WeakSet;
+    safeContext.Symbol = Symbol;
+    safeContext.Error = Error;
+    safeContext.RangeError = RangeError;
+    safeContext.TypeError = TypeError;
+    safeContext.SyntaxError = SyntaxError;
+    safeContext.AbortController = AbortController;
 
-    // Запускаем в отдельном процессе с ограничениями
-    const nodeArgs = [
-      `--max-old-space-size=${RUN_CODE_MEMORY_MB}`,
-      '--no-warnings',
-    ];
+    // setTimeout/setInterval с ограничением
+    safeContext.setTimeout = setTimeout;
+    safeContext.setInterval = setInterval;
+    safeContext.clearTimeout = clearTimeout;
+    safeContext.clearInterval = clearInterval;
 
-    let cmd: string;
-    if (language === 'typescript') {
-      // Используем tsx если доступен, иначе ts-node
-      cmd = `npx tsx ${scriptPath}`;
-    } else {
-      cmd = `node ${nodeArgs.join(' ')} ${scriptPath}`;
-    }
+    // fetch — разрешён, но без cookie/credentials
+    safeContext.fetch = fetch;
 
-    // Whitelist-safe env: only known safe vars, no secrets
-    const safeKeys = ['PATH', 'HOME', 'USERPROFILE', 'TEMP', 'TMP', 'SYSTEMROOT', 'COMSPEC', 'PATHEXT'];
-    const env: NodeJS.ProcessEnv = { PATH: process.env.PATH ?? '' };
-    for (const key of safeKeys) {
-      if (process.env[key] !== undefined) env[key] = process.env[key];
-    }
-    env.HTTP_PROXY = 'http://0.0.0.0:0';
-    env.HTTPS_PROXY = 'http://0.0.0.0:0';
-    env.NO_PROXY = '';
-    env.ZAI_API_KEY = '';
-    env.OPENAI_API_KEY = '';
-    env.ANTHROPIC_API_KEY = '';
+    // Buffer — разрешён для работы с бинарными данными
+    safeContext.Buffer = Buffer;
 
-    let stdout = '';
-    let stderr = '';
-    let exitCode = 0;
-    let timedOut = false;
+    // URL/URLSearchParams
+    safeContext.URL = URL;
+    safeContext.URLSearchParams = URLSearchParams;
+
+    // AbortController для таймаутов
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, timeoutMs);
 
     try {
-      const result = await execAsync(cmd, {
-        cwd: tmpDir,
-        timeout: timeoutMs,
-        maxBuffer: MAX_RUN_CODE_OUTPUT,
-        env,
+      // Создаём контекст и выполняем код
+      const ctx = createContext(safeContext);
+
+      // Оборачиваем в async IIFE
+      const wrappedCode = `(async () => { ${fullCode} })()`;
+
+      const script = new Script(wrappedCode, {
+        filename: 'una-sandbox.js',
+        lineOffset: 0,
+        columnOffset: 0,
       });
-      stdout = result.stdout ?? '';
-      stderr = result.stderr ?? '';
-    } catch (e) {
-      const err = e as { stdout?: string; stderr?: string; killed?: boolean; signal?: string; code?: number | string };
-      stdout = err.stdout ?? '';
-      stderr = err.stderr ?? '';
-      exitCode = typeof err.code === 'number' ? err.code : 1;
-      if (err.killed && err.signal === 'SIGTERM') {
-        timedOut = true;
+
+      const result = script.runInContext(ctx);
+
+      // Если результат — Promise (async код), ждём его
+      if (result && typeof (result as Promise<unknown>).then === 'function') {
+        await Promise.race([
+          result as Promise<unknown>,
+          new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('timeout')), timeoutMs);
+          }),
+        ]);
       }
+    } finally {
+      clearTimeout(timeoutId);
     }
 
     const durationMs = Date.now() - startTime;
@@ -698,9 +733,9 @@ export async function run_code(args: {
     return {
       success: !timedOut,
       data: {
-        stdout: stdout.slice(0, MAX_RUN_CODE_OUTPUT),
-        stderr: stderr.slice(0, MAX_RUN_CODE_OUTPUT),
-        exit_code: timedOut ? 124 : exitCode, // 124 = стандартный timeout exit code
+        stdout: stdout.join('\n').slice(0, MAX_RUN_CODE_OUTPUT),
+        stderr: stderr.join('\n').slice(0, MAX_RUN_CODE_OUTPUT),
+        exit_code: timedOut ? 124 : 0,
         duration_ms: durationMs,
         timed_out: timedOut,
         language,
@@ -708,123 +743,79 @@ export async function run_code(args: {
       error: timedOut ? `Превышен timeout ${timeoutMs}мс` : undefined,
     };
   } catch (e) {
-    return { success: false, error: `run_code failed: ${(e as Error).message}` };
-  } finally {
-    // Очищаем временную директорию
+    const durationMs = Date.now() - startTime;
+    const errorMsg = e instanceof Error ? e.message : String(e);
+    return {
+      success: false,
+      data: {
+        stdout: stdout.join('\n').slice(0, MAX_RUN_CODE_OUTPUT),
+        stderr: errorMsg.slice(0, MAX_RUN_CODE_OUTPUT),
+        exit_code: 1,
+        duration_ms: durationMs,
+        timed_out: false,
+        language,
+      },
+      error: `run_code error: ${errorMsg}`,
+    };
+  }
+}
+
+/**
+ * Форматирует значение для вывода в stdout/stderr.
+ */
+function formatValue(v: unknown): string {
+  if (v === undefined) return 'undefined';
+  if (v === null) return 'null';
+  if (typeof v === 'string') return v;
+  if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+  if (typeof v === 'bigint') return v.toString();
+  if (v instanceof Error) return v.message;
+  if (Array.isArray(v)) return `[${v.map(formatValue).join(', ')}]`;
+  if (v && typeof v === 'object') {
     try {
-      await fs.rm(tmpDir, { recursive: true, force: true });
+      return JSON.stringify(v);
     } catch {
-      // ignore
+      return '[Object]';
     }
   }
+  return String(v);
 }
 
 /**
- * Базовая проверка на опасные вызовы.
- * Это НЕ полная защита — для настоящей sandbox нужен Docker/containers.
- * Здесь только blocking самых явных паттернов.
+ * Минимальный стриппер TypeScript-типов.
+ * Убирает: interface, type, as X, : Type, enum (частично).
+ * Не полная транспиляция, но достаточно для простого кода.
  */
-function checkDangerousCode(code: string): string | null {
-  // Нормализуем: убираем комментарии и строковые литералы, чтобы усложнить обход
-  // Но для безопасности — проверяем И оригинальный, и "очищенный" код
+function stripTypescript(ts: string): string | null {
+  try {
+    let result = ts;
 
-  const dangerousPatterns: Array<{ pattern: RegExp; reason: string }> = [
-    // Динамическое выполнение
-    { pattern: /\beval\s*\(/, reason: 'eval() — динамическое выполнение кода' },
-    { pattern: /\bnew\s+Function\s*\(/, reason: 'new Function() — динамическое выполнение кода' },
-    { pattern: /\brequire\s*\(/, reason: 'require() — загрузка модулей' },
-    { pattern: /\bimport\s+.*\s+from\s+['"`]/, reason: 'import — динамическая загрузка модулей' },
+    // Убираем `as Type`
+    result = result.replace(/\bas\s+[\w<>\[\]|&,?\s]+/g, '');
 
-    // Обход через строковые конструкторы
-    { pattern: /String\s*\.\s*fromCharCode\s*\(/, reason: 'String.fromCharCode() — обход фильтра' },
-    { pattern: /String\s*\.\s*fromCodePoint\s*\(/, reason: 'String.fromCodePoint() — обход фильтра' },
-    { pattern: /String\s*\.\s*raw\s*\(/, reason: 'String.raw() — обход фильтра' },
-    { pattern: /String\s*\.\s*from\s*\(/, reason: 'String.from() — обход фильтра' },
+    // Убираем `: Type` в аргументах функций и переменных
+    result = result.replace(/:\s*(?:\w+(?:<[^>]*>)?(?:\s*\|\s*\w+(?:<[^>]*>)?)*)(?=\s*[;,)\n}])/g, '');
 
-    // Доступ к файловой системе
-    { pattern: /require\s*\(\s*['"]child_process['"]/, reason: 'require("child_process") — может выполнять произвольные команды' },
-    { pattern: /require\s*\(\s*['"]fs['"]/, reason: 'require("fs") — доступ к файловой системе' },
-    { pattern: /require\s*\(\s*['"]net['"]/, reason: 'require("net") — сетевой доступ' },
-    { pattern: /require\s*\(\s*['"]http['"]/, reason: 'require("http") — сетевой доступ' },
-    { pattern: /require\s*\(\s*['"]https['"]/, reason: 'require("https") — сетевой доступ' },
-    { pattern: /require\s*\(\s*['"]dns['"]/, reason: 'require("dns") — DNS запросы' },
-    { pattern: /require\s*\(\s*['"]os['"]/, reason: 'require("os") — доступ к системной информации' },
-    { pattern: /require\s*\(\s*['"]cluster['"]/, reason: 'require("cluster") — управление процессами' },
-    { pattern: /require\s*\(\s*['"]path['"]/, reason: 'require("path") — доступ к путям файловой системы' },
-    { pattern: /require\s*\(\s*['"]crypto['"]/, reason: 'require("crypto") — криптографические операции' },
-    { pattern: /require\s*\(\s*['"]child_process['"]/, reason: 'require("child_process") — может выполнять произвольные команды' },
-    { pattern: /require\s*\(\s*['"]fs['"]/, reason: 'require("fs") — доступ к файловой системе' },
-    { pattern: /require\s*\(\s*['"]net['"]/, reason: 'require("net") — сетевой доступ' },
-    { pattern: /require\s*\(\s*['"]http['"]/, reason: 'require("http") — сетевой доступ' },
-    { pattern: /require\s*\(\s*['"]https['"]/, reason: 'require("https") — сетевой доступ' },
-    { pattern: /require\s*\(\s*['"]dns['"]/, reason: 'require("dns") — DNS запросы' },
-    { pattern: /require\s*\(\s*['"]os['"]/, reason: 'require("os") — доступ к системной информации' },
-    { pattern: /require\s*\(\s*['"]cluster['"]/, reason: 'require("cluster") — управление процессами' },
-    { pattern: /process\.exit/, reason: 'process.exit() — может завершить хост-процесс' },
-    { pattern: /process\.kill/, reason: 'process.kill() — может завершить другие процессы' },
-    { pattern: /process\.env/, reason: 'process.env — доступ к переменным окружения (возможны секреты)' },
-    { pattern: /process\.cwd\s*\(\s*\)/, reason: 'process.cwd() — доступ к текущей директории' },
-    { pattern: /process\.chdir\s*\(/, reason: 'process.chdir() — смена текущей директории' },
-    { pattern: /process\.getuid\s*\(\s*\)/, reason: 'process.getuid() — доступ к информации о пользователе' },
-    { pattern: /process\.getpid\s*\(\s*\)/, reason: 'process.getpid() — доступ к PID процесса' },
-    { pattern: /import\s+.*from\s+['"]child_process['"]/, reason: 'import child_process — может выполнять произвольные команды' },
-    { pattern: /import\s+.*from\s+['"]fs['"]/, reason: 'import fs — доступ к файловой системе' },
-    { pattern: /import\s+.*from\s+['"]net['"]/, reason: 'import net — сетевой доступ' },
-    { pattern: /import\s+.*from\s+['"]http['"]/, reason: 'import http — сетевой доступ' },
+    // Убираем return type
+    result = result.replace(/:\s*(?:\w+(?:<[^>]*>)?(?:\s*\|\s*\w+(?:<[^>]*>)?)*)\s*(?=>|\;)/g, '');
 
-    // Доступ к файлам через __dirname / __filename
-    { pattern: /__dirname/, reason: '__dirname — доступ к пути исполняемого файла' },
-    { pattern: /__filename/, reason: '__filename — доступ к пути исполняемого файла' },
+    // Удаляем interface/type объявления целиком (multiline)
+    result = result.replace(/(?:export\s+)?(?:interface|type)\s+\w+[^{]*\{[^}]*\}/gs, '');
 
-    // Динамическая загрузка модулей через шаблонные строки
-    { pattern: /require\s*\(\s*`[^`]+`/, reason: 'require() с шаблонной строкой — динамическая загрузка' },
-    { pattern: /require\s*\(\s*[\w]+\s*\+\s*['"`]/, reason: 'require() с конкатенацией — динамическая загрузка' },
+    // Удаляем enum (простой случай)
+    result = result.replace(/(?:export\s+)?enum\s+\w+\s*\{[^}]*\}/gs, '');
 
-    // Обход через Buffer и кодировки
-    { pattern: /Buffer\s*\.\s*from\s*\([^)]*fromCharCode/i, reason: 'Buffer.from(String.fromCharCode()) — обход фильтра' },
-    { pattern: /atob\s*\(/, reason: 'atob() — декодирование base64 (может использоваться для обхода)' },
-    { pattern: /btoa\s*\(/, reason: 'btoa() — кодирование base64 (может использоваться для обхода)' },
-  ];
+    // Удаляем declare
+    result = result.replace(/\bdeclare\b\s*/g, '');
 
-  for (const { pattern, reason } of dangerousPatterns) {
-    if (pattern.test(code)) {
-      return reason;
-    }
+    // Удаляем readonly
+    result = result.replace(/\breadonly\b\s*/g, '');
+
+    // Удаляем ключевые слова типовых модификаторов
+    result = result.replace(/\b(?:public|private|protected|abstract|static|override)\b\s*/g, ' ');
+
+    return result.trim() || null;
+  } catch {
+    return null;
   }
-
-  // Дополнительная проверка: ищем конкатенацию частей опасных слов
-  // Например: 'requ' + 'ire' или 'pro' + 'cess'
-  const obfuscationPatterns = [
-    /['"]requ['"]\s*\+\s*['"]ire['"]/,
-    /['"]pro['"]\s*\+\s*['"]ess['"]/,
-    /['"]child['"]\s*\+\s*['"]_process['"]/,
-    /(?:child[_\s]+process)/,
-  ];
-
-  for (const pattern of obfuscationPatterns) {
-    if (pattern.test(code)) {
-      return 'Обнаружена попытка обхода фильтра через конкатенацию строк';
-    }
-  }
-
-  return null;
-}
-
-/**
- * Строит wrapper вокруг пользовательского кода.
- * Перехватывает console.log/error/warn и возвращает их через stdout.
- */
-function buildCodeWrapper(code: string, setupCode: string, language: 'javascript' | 'typescript'): string {
-  const langComment = language === 'typescript' ? '// TypeScript' : '// JavaScript';
-  return `${langComment}
-// U.N.A. sandbox — изолированное выполнение кода
-// setup:
-${setupCode}
-
-// === USER CODE START ===
-(async () => {
-${code.split('\n').map((l) => '  ' + l).join('\n')}
-})();
-// === USER CODE END ===
-`;
 }

@@ -114,7 +114,30 @@ export function initMemory(): void {
     CREATE INDEX IF NOT EXISTS idx_emotions_type ON emotions(emotion);
     CREATE INDEX IF NOT EXISTS idx_facts_category ON facts(category);
     CREATE INDEX IF NOT EXISTS idx_facts_content ON facts(content);
+
+    -- FTS5 index for full-text search on facts content
+    CREATE VIRTUAL TABLE IF NOT EXISTS facts_fts USING fts5(
+      content,
+      tokenize='unicode61'
+    );
+
+    -- Sync triggers for FTS5
+    CREATE TRIGGER IF NOT EXISTS facts_ai AFTER INSERT ON facts BEGIN
+      INSERT INTO facts_fts(rowid, content) VALUES (new.id, new.content);
+    END;
+    CREATE TRIGGER IF NOT EXISTS facts_ad AFTER DELETE ON facts BEGIN
+      INSERT INTO facts_fts(facts_fts, rowid, content) VALUES('delete', old.id, old.content);
+    END;
+    CREATE TRIGGER IF NOT EXISTS facts_au AFTER UPDATE ON facts BEGIN
+      INSERT INTO facts_fts(facts_fts, rowid, content) VALUES('delete', old.id, old.content);
+      INSERT INTO facts_fts(rowid, content) VALUES (new.id, new.content);
+    END;
   `);
+
+  // One-time rebuild of FTS from existing rows (safe to run multiple times)
+  try {
+    db.exec(`INSERT INTO facts_fts(facts_fts) VALUES('rebuild')`);
+  } catch { /* already populated */ }
 }
 
 // ============================================================
@@ -281,13 +304,37 @@ export async function saveFact(category: Fact['category'], content: string): Pro
 }
 
 /**
- * Вспомнить факты по теме (векторный поиск).
+ * Extracts significant keywords from a query for FTS5 search.
+ */
+function ftsKeywords(query: string): string {
+  const words = query.toLowerCase().match(/\w{3,}/g) ?? [];
+  const stopWords = new Set(['the', 'and', 'for', 'are', 'not', 'but', 'had', 'has', 'was', 'all', 'can', 'you', 'this', 'that', 'with', 'from', 'what', 'your', 'have', 'been', 'were', 'they', 'their', 'which', 'when', 'where', 'how', 'who']);
+  const filtered = words.filter((w) => w.length >= 3 && !stopWords.has(w) && !/^\d+$/.test(w));
+  return [...new Set(filtered)].join(' OR ');
+}
+
+/**
+ * Вспомнить факты по теме (векторный поиск с FTS5 предфильтрацией).
  */
 export async function recallFacts(query: string, limit = 5): Promise<Fact[]> {
   if (!db) return [];
   const queryEmbedding = await embed(query);
 
-  const all = db.prepare('SELECT * FROM facts').all() as Array<{
+  // FTS5 pre-filter: get candidate IDs matching query keywords
+  const keywords = ftsKeywords(query);
+  let candidateIds: number[] = [];
+  if (keywords) {
+    try {
+      const ftsRows = db.prepare(
+        `SELECT rowid FROM facts_fts WHERE facts_fts MATCH ? ORDER BY rank LIMIT 200`
+      ).all(keywords) as Array<{ rowid: number }>;
+      candidateIds = ftsRows.map((r) => r.rowid);
+    } catch {
+      // FTS5 search failed (e.g. invalid query syntax), fall back to full scan
+    }
+  }
+
+  let rows: Array<{
     id: number;
     category: string;
     content: string;
@@ -297,10 +344,21 @@ export async function recallFacts(query: string, limit = 5): Promise<Fact[]> {
     use_count: number;
   }>;
 
-  if (all.length === 0) return [];
+  if (candidateIds.length > 0) {
+    // Load only candidates from FTS5
+    const placeholders = candidateIds.map(() => '?').join(',');
+    rows = db.prepare(
+      `SELECT * FROM facts WHERE id IN (${placeholders})`
+    ).all(...candidateIds) as typeof rows;
+  } else {
+    // Fall back to full scan for short/abstract queries
+    rows = db.prepare('SELECT * FROM facts LIMIT 500').all() as typeof rows;
+  }
+
+  if (rows.length === 0) return [];
 
   // Сортируем по cosine similarity
-  const scored = all
+  const scored = rows
     .map((f) => {
       if (!f.embedding) {
         return {
@@ -413,10 +471,24 @@ export async function buildContext(
 }
 
 /**
+ * Run WAL checkpoint to flush WAL into main DB file.
+ * Call periodically (e.g. every 5 minutes) to prevent WAL from growing unbounded.
+ */
+export function walCheckpoint(): void {
+  if (!db) return;
+  try {
+    db.pragma('wal_checkpoint(TRUNCATE)');
+  } catch (e) {
+    console.error('[Memory] WAL checkpoint failed:', e);
+  }
+}
+
+/**
  * Закрыть БД при выходе.
  */
 export function closeMemory(): void {
   if (db) {
+    walCheckpoint();
     db.close();
     db = null;
   }

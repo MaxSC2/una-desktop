@@ -247,23 +247,31 @@ export async function web_fetch(args: {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
-    const resp = await fetch(args.url, {
-      signal: controller.signal,
-      headers: {
-        'User-Agent': 'UNA-Assistant/1.0 (+https://github.com/una-desktop)',
-        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,text/plain;q=0.8,*/*;q=0.7',
-      },
-      redirect: 'follow',
-    });
+      const resp = await fetch(args.url, {
+        signal: controller.signal,
+        headers: {
+          'User-Agent': 'UNA-Assistant/1.0 (+https://github.com/una-desktop)',
+          Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,text/plain;q=0.8,*/*;q=0.7',
+        },
+        redirect: 'follow',
+      });
 
-    clearTimeout(timeout);
+      clearTimeout(timeout);
 
-    if (!resp.ok) {
-      return {
-        success: false,
-        error: `HTTP ${resp.status} ${resp.statusText}: ${args.url}`,
-      };
-    }
+      if (!resp.ok) {
+        return {
+          success: false,
+          error: `HTTP ${resp.status} ${resp.statusText}: ${args.url}`,
+        };
+      }
+
+      // SSRF check on final URL after redirects
+      if (resp.url !== args.url) {
+        const finalCheck = await isUrlSafe(resp.url);
+        if (!finalCheck.safe) {
+          return { success: false, error: `SSRF blocked (redirect to ${resp.url}): ${finalCheck.reason}` };
+        }
+      }
 
     const contentType = resp.headers.get('content-type') ?? 'unknown';
     const contentLength = resp.headers.get('content-length');
@@ -393,6 +401,14 @@ export async function web_download(args: {
         success: false,
         error: `HTTP ${resp.status} ${resp.statusText}: ${args.url}`,
       };
+    }
+
+    // SSRF check on final URL after redirects
+    if (resp.url !== args.url) {
+      const finalCheck = await isUrlSafe(resp.url);
+      if (!finalCheck.safe) {
+        return { success: false, error: `SSRF blocked (redirect to ${resp.url}): ${finalCheck.reason}` };
+      }
     }
 
     const contentType = resp.headers.get('content-type') ?? 'application/octet-stream';
