@@ -1,0 +1,121 @@
+{
+  "name": "una-assistant",
+  "version": "1.0.0",
+  "description": "U.N.A. — Universal Neural Assistant. Персональный AI-ассистент для ПК (женская персона).",
+  "main": "dist-electron/electron/main.js",
+  "author": {
+    "name": "UNA Team",
+    "email": "alaster3070@gmail.com"
+  },
+  "license": "MIT",
+  "scripts": {
+    "dev": "concurrently -k \"npm:dev:renderer\" \"npm:dev:electron\"",
+    "dev:renderer": "vite",
+    "dev:electron": "wait-on tcp:5173 && tsc -p electron/tsconfig.json && cross-env NODE_ENV=development electron .",
+    "prebuild": "node scripts/pre-build-check.js",
+    "build": "npm run prebuild && tsc -p electron/tsconfig.json && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "prepackage": "node scripts/pre-build-check.js",
+    "package:win": "npm run prepackage && npm run build && electron-builder --win --x64",
+    "package:linux": "npm run prepackage && npm run build && electron-builder --linux --x64",
+    "package:mac": "npm run prepackage && npm run build && electron-builder --mac --arm64",
+    "postinstall": "electron-builder install-app-deps",
+    "check": "node scripts/pre-build-check.js",
+    "manifest": "node scripts/verify-manifest.js"
+  },
+  "dependencies": {
+    "@rive-app/react-canvas": "^4.29.3",
+    "@types/react-syntax-highlighter": "^15.5.13",
+    "better-sqlite3": "^11.3.0",
+    "electron-store": "^8.2.0",
+    "electron-updater": "^6.3.9",
+    "lucide-react": "^0.460.0",
+    "react-markdown": "^10.1.0",
+    "react-syntax-highlighter": "^16.1.1",
+    "remark-gfm": "^4.0.1",
+    "sonner": "^1.7.4",
+    "telegraf": "^4.16.3",
+    "z-ai-web-dev-sdk": "^0.0.17",
+    "zod": "^4.4.3",
+    "zustand": "^5.0.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.11",
+    "@types/node": "^22.7.4",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.2",
+    "@vitest/coverage-v8": "^4.1.9",
+    "autoprefixer": "^10.4.20",
+    "concurrently": "^9.0.1",
+    "cross-env": "^7.0.3",
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.8",
+    "pdfjs-dist": "^3.11.174",
+    "postcss": "^8.4.47",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tailwindcss": "^3.4.13",
+    "typescript": "^5.6.2",
+    "vite": "^5.4.8",
+    "vitest": "^4.1.9",
+    "wait-on": "^8.0.1"
+  },
+  "build": {
+    "appId": "com.una.assistant",
+    "productName": "UNA Assistant",
+    "directories": {
+      "output": "release",
+      "buildResources": "assets"
+    },
+    "files": [
+      "dist-electron/**/*",
+      "dist/**/*",
+      "assets/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.ico",
+      "artifactName": "UNA-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "UNA Assistant"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "icon": "assets/icon.png",
+      "category": "Utility"
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "icon": "assets/icon.icns",
+      "category": "public.app-category.utilities"
+    }
+  }
+}

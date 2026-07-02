@@ -1,0 +1,49 @@
+appId: com.una.desktop
+productName: UNA
+compression: maximum
+
+directories:
+  output: release
+  buildResources: assets
+
+files:
+  - dist-electron/**/*
+  - dist/**/*
+  - assets/**/*
+  - package.json
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  icon: assets/icon.png
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: UNA
+  installerIcon: assets/icon.png
+  uninstallerIcon: assets/icon.png
+  installerHeaderIcon: assets/icon.png
+  artifactName: UNA-Setup-${version}-${arch}.${ext}
+
+publish:
+  provider: github
+  owner: MaxSC2
+  repo: una-desktop
+
+linux:
+  target:
+    - AppImage
+    - deb
+  icon: assets/icon.png
+  category: Utility
+
+mac:
+  target:
+    - dmg
+  icon: assets/icon.icns
+  category: public.app-category.utilities

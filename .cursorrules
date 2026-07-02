@@ -1,0 +1,98 @@
+# U.N.A. Desktop — AI Coding Rules
+# Этот файл направляет AI-ассистентов (Cursor, Claude, GPT) при работе с кодом.
+
+## Контекст проекта
+- **U.N.A.** — персональный AI-компаньон для desktop (Electron + React 19 + TypeScript)
+- **Цель:** "напарник", не "слуга" и не "клоун" — U.N.A. работает ВМЕСТЕ с пользователем
+- **Архитектура:** multi-agent (Router → 5 специалистов → Verifier), 19 инструментов, hybrid LLM (Ollama + Z.ai)
+
+## Правила кодирования
+
+### Язык и стиль
+- **TypeScript strict mode** — без `any` где можно, использовать `unknown` + type guards
+- **Функциональный стиль** где уместно, но классы для stateful компонентов
+- **Имена:** camelCase для функций/переменных, PascalCase для типов/компонентов, snake_case ТОЛЬКО для IPC каналов (для консистентности с существующим API)
+- **Комментарии:** на русском (проект русскоязычный), но технические термины на английском
+
+### Файлы
+- **.bat файлы:** писать на чистом английском, БЕЗ кириллицы (Windows codepage issues)
+- **Сложная логика** — в .js/.ts файлах, .bat — только тонкие wrapper'ы
+- **Никогда** не использовать `chcp 65001` в .bat (ненадёжно на старых Windows)
+
+### Electron
+- **IPC:** все каналы через `ipcMain.handle` / `ipcRenderer.invoke` (не `on`/`send` для запросов)
+- **Validation:** все IPC-сообщения валидируются через Zod schemas (electron/validation/schemas.ts)
+- **Preload:** contextBridge.exposeInMainWorld('una', ...) — только через preload, не напрямую
+- **Безопасность:** contextIsolation: true, nodeIntegration: false, sandbox: true
+
+### React
+- **Functional components** только, без class components
+- **Hooks:** useState, useEffect, useCallback, useMemo — без избыточности
+- **Store:** Zustand (не Redux) — простой, hook-based
+- **Styling:** Tailwind CSS utility classes, не CSS-in-JS (кроме динамических стилей)
+- **Иконки:** lucide-react (уже в dependencies)
+
+### LLM и AI
+- **Streaming:** использовать chatWithToolsStream (не chatWithTools) для лучшего UX
+- **Tools:** все инструменты через dispatchTool, добавить в TOOL_DEFINITIONS
+- **Safety:** 4 уровня (safe/caution/dangerous/forbidden) — никогда не обходить
+- **Memory:** через saveFact/recallFacts, не напрямую в SQLite
+
+### Тестирование
+- **Vitest** для unit/integration тестов (vitest.config.ts)
+- **Покрытие:** цель 70% для electron/ai/ и electron/safety/
+- **Smoke tests** в scripts/ (запускаются через `npx tsx scripts/test-*.ts`)
+- **Имена тестов:** описательные ("blocks localhost URLs", не "test1")
+
+### Git
+- **Коммиты:** Conventional Commits (feat:, fix:, docs:, test:, refactor:)
+- **Сообщения** на русском или английском — консистентно в рамках PR
+- **Большие изменения** — через feature branches
+
+### Безопасность
+- **Никогда** не коммитить .env, *.key, id_rsa
+- **Secrets** — через OS keychain (electron-store шифрует)
+- **SSRF protection** для всех web requests (см. isUrlSafe в web-tools.ts)
+- **Sandbox** для run_code (timeout, memory limit, blocked modules)
+
+### Производительность
+- **Streaming** для LLM responses (не ждать полный ответ)
+- **Lazy loading** для тяжёлых компонентов (VLM, embeddings)
+- **Debounce** для input fields (300ms)
+- **Virtualization** для длинных списков (react-virtual)
+
+## Что НЕ делать
+- ❌ Не использовать `eval` или `new Function` (кроме sandbox в run_code)
+- ❌ Не хранить API ключи в коде или localStorage (только electron-store)
+- ❌ Не делать прямые SQL запросы из renderer (только через IPC)
+- ❌ Не использовать `any` без крайней необходимости (лучше `unknown`)
+- ❌ Не добавлять зависимости без обоснования (bundle size matters)
+- ❌ Не писать логику в .bat/.ps1 файлах (только в .ts/.js)
+
+## Структура проекта
+```
+electron/           — main process (Node.js)
+  ai/               — LLM, ASR, TTS, tools
+  agents/           — multi-agent orchestrator
+  memory/           — SQLite store
+  safety/           — classifier, protected files
+  tools/            — 19 tool definitions + dispatch
+  validation/       — Zod schemas
+  main.ts           — entry point, IPC handlers
+  preload.ts        — contextBridge
+src/                — renderer (React 19)
+  components/       — UI components
+  hooks/            — custom hooks
+  lib/              — store, api types
+prompts/            — system prompts
+scripts/            — setup, smoke tests
+tests/              — vitest tests
+docs/               — documentation
+```
+
+## Приоритеты фич
+1. **UI polishiing** (markdown, code blocks, copy, stop) — критично
+2. **Persistent reminders** — глава 29 исследования
+3. **GUI automation** (nut.js) — глава 26
+4. **Speaker ID** — глава 21
+5. **MCP end-to-end** — глава 26.7
