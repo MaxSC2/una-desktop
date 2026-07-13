@@ -14,6 +14,8 @@
 import { BrowserWindow, Notification } from 'electron';
 import { getWorkContext, WorkContext } from './work-context';
 import { getLastEmotion, getEmotionSummary } from '../memory/store';
+import { getProactiveConfig } from './config';
+import { getLastResourceState, canRunTask } from './resource-manager';
 
 export interface ProactiveSuggestion {
   id: string;
@@ -30,8 +32,10 @@ let lastSuggestionTime: Date = new Date();
 let lastSuggestionType: string | null = null;
 let ignoredCount: number = 0;
 
-const MIN_INTERVAL_MS = 30 * 60 * 1000; // 30 минут минимум между предложениями
-const MAX_IGNORED = 3; // после 3 игнорирований — затихаем на 2 часа
+function minutes(value: number, fallback: number, min: number, max: number): number {
+  if (!Number.isFinite(value)) return fallback;
+  return Math.min(Math.max(value, min), max);
+}
 
 /**
  * Запустить proactive engine.
@@ -39,12 +43,20 @@ const MAX_IGNORED = 3; // после 3 игнорирований — затих
 export function startProactiveEngine(getMainWindow: () => BrowserWindow | null): void {
   if (proactiveTimer) return;
 
-  // Проверяем каждые 10 минут
+  const cfg = getProactiveConfig();
+  if (!cfg.enabled) {
+    console.log('[Proactive] Engine disabled in config');
+    return;
+  }
+
+  const checkIntervalMinutes = minutes(cfg.checkIntervalMinutes, 10, 1, 24 * 60);
+
+  // Проверяем по интервалу из настроек
   proactiveTimer = setInterval(async () => {
     await checkAndSuggest(getMainWindow);
-  }, 10 * 60 * 1000);
+  }, checkIntervalMinutes * 60 * 1000);
 
-  console.log('[Proactive] Engine started (interval: 10 min)');
+  console.log(`[Proactive] Engine started (interval: ${checkIntervalMinutes} min)`);
 }
 
 /**
@@ -62,20 +74,31 @@ export function stopProactiveEngine(): void {
  * Главная проверка — собрать контекст и решить, нужно ли предложить.
  */
 async function checkAndSuggest(getMainWindow: () => BrowserWindow | null): Promise<void> {
+  const cfg = getProactiveConfig();
+  if (!cfg.enabled) return;
+
   const now = new Date();
   const sinceLast = now.getTime() - lastSuggestionTime.getTime();
+  const minIntervalMs = minutes(cfg.minSuggestionIntervalMinutes, 30, 1, 24 * 60) * 60 * 1000;
+  const maxIgnored = Math.min(Math.max(cfg.maxIgnored, 1), 20);
 
   // Если слишком рано — пропускаем
-  if (sinceLast < MIN_INTERVAL_MS) return;
+  if (sinceLast < minIntervalMs) return;
 
   // Если пользователь игнорирует — затихаем
-  if (ignoredCount >= MAX_IGNORED) {
-    const quietHours = 2 * 60 * 60 * 1000;
+  if (ignoredCount >= maxIgnored) {
+    const quietHours = minutes(cfg.quietHoursAfterIgnored * 60, 120, 1, 24 * 60) * 60 * 1000;
     if (sinceLast < quietHours) return;
     ignoredCount = 0; // сброс после 2 часов тишины
   }
 
   try {
+    const state = getLastResourceState();
+    if (state && !canRunTask('background', state)) {
+      console.log('[Proactive] Skipped — resource manager advises against background tasks');
+      return;
+    }
+
     const workCtx = await getWorkContext();
     const lastEmotion = getLastEmotion();
     const emotionSummary = getEmotionSummary(1); // за сегодня
@@ -188,7 +211,7 @@ function deliverSuggestion(
   notification.on('close', () => {
     // Игнор — увеличиваем счётчик
     ignoredCount++;
-    console.log(`[Proactive] Ignored (${ignoredCount}/${MAX_IGNORED}): ${suggestion.type}`);
+    console.log(`[Proactive] Ignored (${ignoredCount}/${getProactiveConfig().maxIgnored}): ${suggestion.type}`);
   });
 
   notification.show();

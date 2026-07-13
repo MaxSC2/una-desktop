@@ -83,19 +83,19 @@ export async function type_text(args: {
   delay_ms?: number;
 }): Promise<GUIResult> {
   // Проверяем наличие nut.js или robotjs
-  const hasNut = await checkModule('@nut-tree/nut-js');
+  const hasNut = await checkModule('@nut-tree-fork/nut-js');
   const hasRobotjs = await checkModule('robotjs');
 
   if (!hasNut && !hasRobotjs) {
     return {
       success: false,
-      error: 'type_text требует @nut-tree/nut-js или robotjs. Установите: npm install @nut-tree/nut-js',
+      error: 'type_text требует @nut-tree-fork/nut-js или robotjs. Установите: npm install @nut-tree-fork/nut-js',
     };
   }
 
   try {
     if (hasNut) {
-      const nut: any = require('@nut-tree/nut-js');
+      const nut: any = require('@nut-tree-fork/nut-js');
       const keyboard = nut.keyboard;
       if (args.delay_ms) {
         keyboard.config.autoDelayMs = args.delay_ms;
@@ -131,13 +131,13 @@ export async function click(args: {
   button?: 'left' | 'right' | 'middle';
   double?: boolean;
 }): Promise<GUIResult> {
-  const hasNut = await checkModule('@nut-tree/nut-js');
+  const hasNut = await checkModule('@nut-tree-fork/nut-js');
   const hasRobotjs = await checkModule('robotjs');
 
   if (!hasNut && !hasRobotjs) {
     return {
       success: false,
-      error: 'click требует @nut-tree/nut-js или robotjs. Установите: npm install @nut-tree/nut-js',
+      error: 'click требует @nut-tree-fork/nut-js или robotjs. Установите: npm install @nut-tree-fork/nut-js',
     };
   }
 
@@ -145,7 +145,7 @@ export async function click(args: {
     const button = args.button ?? 'left';
 
     if (hasNut) {
-      const nut: any = require('@nut-tree/nut-js');
+      const nut: any = require('@nut-tree-fork/nut-js');
       const mouse = nut.mouse;
       const Point = nut.Point;
       const Button = nut.Button;
@@ -187,19 +187,19 @@ export async function key_press(args: {
   key: string;
   modifiers?: string[]; // 'ctrl', 'shift', 'alt', 'cmd'
 }): Promise<GUIResult> {
-  const hasNut = await checkModule('@nut-tree/nut-js');
+  const hasNut = await checkModule('@nut-tree-fork/nut-js');
   const hasRobotjs = await checkModule('robotjs');
 
   if (!hasNut && !hasRobotjs) {
     return {
       success: false,
-      error: 'key_press требует @nut-tree/nut-js или robotjs. Установите: npm install @nut-tree/nut-js',
+      error: 'key_press требует @nut-tree-fork/nut-js или robotjs. Установите: npm install @nut-tree-fork/nut-js',
     };
   }
 
   try {
     if (hasNut) {
-      const nut: any = require('@nut-tree/nut-js');
+      const nut: any = require('@nut-tree-fork/nut-js');
       const keyboard = nut.keyboard;
       const Key = nut.Key;
 

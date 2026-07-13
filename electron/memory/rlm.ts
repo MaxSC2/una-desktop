@@ -10,8 +10,11 @@
  * hidden [MEM] save:category:fact commands at the end of responses.
  */
 
-import { recallFacts, saveFact, Fact } from './store';
+import { recallFacts, saveFact, Fact, listPods, getPodByName, createPod, incrementPodUse, markFactForget as storeMarkFactForget, setFactImportance as storeSetFactImportance, listFacts } from './store';
+import { getRelatedFacts } from './knowledge-graph';
+import { findRelevantPods, classifyToPod } from './pods';
 import { getMemoryConfig } from '../ai/config';
+import { getOptimalContextTokens } from '../ai/resource-manager';
 
 // ============================================================
 // TYPES
@@ -29,7 +32,7 @@ export interface RLMConfig {
 }
 
 export const DEFAULT_RLM_CONFIG: RLMConfig = {
-  maxHotTokens: 4096,
+  maxHotTokens: getOptimalContextTokens(),
   maxHistoryMessages: 50,
   maxRecentFacts: 20,
   hotSystemPromptMaxTokens: 2000,
@@ -42,14 +45,16 @@ export const DEFAULT_RLM_CONFIG: RLMConfig = {
 export interface HotContext {
   systemPrompt: string;
   facts: string[];
+  relatedFacts: string[];
   recentMessages: Array<{ role: string; content: string }>;
   workContext: string | null;
   emotionContext: string | null;
+  activePods: Array<{ id?: number; name: string; description: string; factCount: number }>;
   totalTokens: number;
 }
 
 export interface MemoryToken {
-  action: 'save' | 'recall' | 'forget' | 'set_importance' | 'load_context' | 'summarize';
+  action: 'save' | 'recall' | 'forget' | 'set_importance' | 'load_context' | 'summarize' | 'create_pod' | 'switch_pod';
   category: string;
   content: string;
 }
@@ -154,8 +159,44 @@ export async function buildHotContext(
   }
   const factStrings = facts.map((f) => `[${f.category}] ${f.content}`);
 
-  // 3. Select recent messages — fit into ~2K tokens
-  const selectedMessages = selectMessages(recentMessages, 2048);
+  // 2.1 Knowledge Graph: get related facts for each recalled fact
+  let relatedFactStrings: string[] = [];
+  try {
+    const relatedIds = facts.map(f => f.id).filter((id): id is number => id !== undefined);
+    if (relatedIds.length > 0) {
+      const allRelated = relatedIds.flatMap(id => getRelatedFacts(id));
+      const seen = new Set<number>();
+      for (const rf of allRelated) {
+        const rfid = rf.fact.id;
+        if (rfid && !seen.has(rfid) && !facts.some(f => f.id === rfid)) {
+          seen.add(rfid);
+          relatedFactStrings.push(`[${rf.fact.category}] ${rf.fact.content} (${rf.relation})`);
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('[RLM] knowledge graph query failed:', e);
+  }
+  const maxRelated = 3;
+  if (relatedFactStrings.length > maxRelated) relatedFactStrings = relatedFactStrings.slice(0, maxRelated);
+
+  // 2.5 Find relevant pods for the user query
+  let activePods: Array<{ id?: number; name: string; description: string; factCount: number }> = [];
+  try {
+    const relevantPods = findRelevantPods(userMessage);
+    if (relevantPods.length > 0) {
+      activePods = relevantPods.slice(0, 3);
+      for (const pod of activePods) {
+        if (pod.id) incrementPodUse(pod.id);
+      }
+    }
+  } catch (e) {
+    console.warn('[RLM] findRelevantPods failed:', e);
+  }
+
+  // 3. Select recent messages — fit into half the token budget
+  const messageBudget = Math.floor(cfg.maxHotTokens * 0.5);
+  const selectedMessages = selectMessages(recentMessages, messageBudget);
 
   // 4. Work context (if available)
   let workCtx: string | null = null;
@@ -169,25 +210,34 @@ export async function buildHotContext(
     emotionCtx = `Настроение: ${emotion}`;
   }
 
-  // 6. Calculate total tokens
+  // 6. Pod context string
+  const podContextStr = activePods.length > 0
+    ? `\n\n[Доступные модули памяти]\n${activePods.map((p) => `- ${p.name}: ${p.description} (${p.factCount} фактов)`).join('\n')}`
+    : '';
+  const podTokens = estimateTokens(podContextStr);
+
+  // 7. Calculate total tokens
   const totalTokens =
     estimateTokens(systemPrompt) +
     factStrings.reduce((sum, f) => sum + estimateTokens(f), 0) +
     selectedMessages.reduce((sum, m) => sum + estimateTokens(m.content), 0) +
     (workCtx ? estimateTokens(workCtx) : 0) +
     (emotionCtx ? estimateTokens(emotionCtx) : 0) +
+    podTokens +
     estimateTokens(userMessage);
 
   if (cfg.debug) {
-    console.log(`[RLM] HOT: ${totalTokens} tokens (system: ${estimateTokens(systemPrompt)}, facts: ${factStrings.reduce((s, f) => s + estimateTokens(f), 0)}, messages: ${selectedMessages.reduce((s, m) => s + estimateTokens(m.content), 0)}, context: ${(workCtx ? estimateTokens(workCtx) : 0) + (emotionCtx ? estimateTokens(emotionCtx) : 0)})`);
+    console.log(`[RLM] HOT: ${totalTokens} tokens (system: ${estimateTokens(systemPrompt)}, facts: ${factStrings.reduce((s, f) => s + estimateTokens(f), 0)}, messages: ${selectedMessages.reduce((s, m) => s + estimateTokens(m.content), 0)}, context: ${(workCtx ? estimateTokens(workCtx) : 0) + (emotionCtx ? estimateTokens(emotionCtx) : 0)}, pods: ${podTokens})`);
   }
 
   return {
     systemPrompt,
     facts: factStrings,
+    relatedFacts: relatedFactStrings,
     recentMessages: selectedMessages,
     workContext: workCtx,
     emotionContext: emotionCtx,
+    activePods,
     totalTokens,
   };
 }
@@ -244,12 +294,21 @@ export function buildMessagesFromHot(hot: HotContext, userMessage: string): Arra
     });
   }
 
+  // Related facts from Knowledge Graph
+  if (hot.relatedFacts && hot.relatedFacts.length > 0) {
+    messages.push({
+      role: 'system',
+      content: `Связанные факты (Knowledge Graph):\n${hot.relatedFacts.join('\n')}`,
+    });
+  }
+
   // Recent messages
   for (const msg of hot.recentMessages) {
     messages.push(msg);
   }
 
   // Context (work + emotion) appended to user message
+  // Pods are listed in system prompt via dynamic-prompt — not duplicated here
   let enhancedUserMessage = userMessage;
   if (hot.workContext) {
     enhancedUserMessage += `\n\n[Контекст работы]\n${hot.workContext}`;
@@ -286,7 +345,7 @@ export function parseMemoryTokens(llmResponse: string): { tokens: MemoryToken[];
     const category = match[2].trim();
     const content = match[3].trim();
 
-    const validActions = ['save', 'recall', 'forget', 'set_importance', 'load_context', 'summarize'];
+    const validActions = ['save', 'recall', 'forget', 'set_importance', 'load_context', 'summarize', 'create_pod', 'switch_pod'];
     if (validActions.includes(action)) {
       tokens.push({
         action: action as MemoryToken['action'],
@@ -367,6 +426,42 @@ export async function executeMemoryTokens(tokens: MemoryToken[], debug = false):
           if (debug) console.log(`[RLM]   → summarize: last ${n} messages`);
           break;
         }
+
+        case 'create_pod': {
+          // Create a new memory pod
+          // Content format: "name:description"
+          const colonIdx = token.content.indexOf(':');
+          if (colonIdx > 0) {
+            const podName = token.content.slice(0, colonIdx).trim();
+            const podDesc = token.content.slice(colonIdx + 1).trim();
+            if (podName && podDesc) {
+              const existingPod = await getPodByName(podName);
+              if (!existingPod) {
+                createPod(podName, podDesc);
+                if (debug) console.log(`[RLM]   → created pod: ${podName}`);
+              } else {
+                if (debug) console.log(`[RLM]   → pod exists: ${podName}`);
+              }
+            }
+          }
+          break;
+        }
+
+        case 'switch_pod': {
+          // Focus on a specific pod
+          // Content: "podName:query"
+          const switchColon = token.content.indexOf(':');
+          if (switchColon > 0) {
+            const podName = token.content.slice(0, switchColon).trim();
+            const query = token.content.slice(switchColon + 1).trim();
+            const pod = await getPodByName(podName);
+            if (pod) {
+              warmCache.lastFactsRefresh = 0; // Force refresh
+              if (debug) console.log(`[RLM]   → switched to pod: ${podName}, query: ${query}`);
+            }
+          }
+          break;
+        }
       }
     } catch (e) {
       console.warn(`[RLM] Memory token failed (${token.action}):`, e);
@@ -382,14 +477,10 @@ export async function executeMemoryTokens(tokens: MemoryToken[], debug = false):
  * Mark facts as forgotten (soft delete via use_count = -1).
  */
 async function markFactForget(category: string, contentPattern: string): Promise<void> {
-  // This would need a store.ts function, but for now we use a simple approach:
-  // Find facts matching the pattern and mark them
   const facts = await recallFacts(contentPattern, 20);
   for (const fact of facts) {
     if (fact.category === category || category === 'all') {
-      // Mark as forgotten by setting use_count to -1
-      // (store.ts would need a markFactForget function)
-      // For now, we just skip — this is a placeholder
+      if (fact.id) storeMarkFactForget(fact.id);
     }
   }
 }
@@ -398,9 +489,8 @@ async function markFactForget(category: string, contentPattern: string): Promise
  * Set importance level on a fact.
  */
 async function setFactImportance(factId: number, level: string): Promise<void> {
-  // Placeholder — would need store.ts function
-  // For now, we just log
-  console.log(`[RLM] setFactImportance: fact#${factId} = ${level} (not implemented in store yet)`);
+  const valid = level === 'high' || level === 'medium' || level === 'low';
+  storeSetFactImportance(factId, valid ? level : 'medium');
 }
 
 // ============================================================
@@ -442,12 +532,22 @@ export function getMemoryInstructions(): string {
 [MEM] recall:запрос — вспомнить факты по теме
 [MEM] forget:категория:что забыть — забыть устаревшее
 [MEM] summarize:количество — сжать старые сообщения
+[MEM] create_pod:имя:описание — создать новый модуль памяти
+[MEM] switch_pod:имя:запрос — переключить фокус на модуль памяти
 
 Примеры:
 [MEM] save:user:Пользователя зовут Макс
 [MEM] save:preference:Любит Python, не любит Java
 [MEM] save:project:Работает над UNA Desktop v32
 [MEM] recall:какой язык программирования
+[MEM] create_pod:cooking:Рецепты и кулинарные предпочтения пользователя
+[MEM] switch_pod:project:текущий статус проекта
+
+# Модули памяти (Memory Pods)
+Твоя память организована в тематические модули (поды). Каждый под содержит факты по теме.
+В начале диалога ты получаешь список доступных модулей в блоке [Доступные модули памяти].
+Используй create_pod чтобы создать новый модуль для новой темы.
+Используй switch_pod чтобы запросить загрузку фактов из конкретного модуля.
 
 Блок [MEM] не виден пользователю. Используй только когда действительно нужно что-то запомнить.`;
 }

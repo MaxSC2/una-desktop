@@ -6,7 +6,8 @@
 
 import { useStore } from '../lib/store';
 import { useUNA } from '../hooks/useUNA';
-import { AlertTriangle, Shield, Check, X } from 'lucide-react';
+import { AlertTriangle, Shield, X } from 'lucide-react';
+import { CheckIcon } from '@/components/ui/animated-icons';
 
 export function ConfirmationDialog() {
   const pending = useStore((s) => s.pendingConfirmation);
@@ -62,7 +63,7 @@ export function ConfirmationDialog() {
               isDangerous ? 'bg-rose-600 hover:bg-rose-500 text-white' : 'bg-amber-600 hover:bg-amber-500 text-white'
             }`}
           >
-            <Check className="h-4 w-4" />
+            <CheckIcon size={16} />
             Подтвердить
           </button>
           <button

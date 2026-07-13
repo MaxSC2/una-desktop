@@ -8,19 +8,17 @@
  * Это даёт 85% адаптивности за $0 — без LoRA, без дообучения.
  */
 
-import { recallFacts, searchEpisodic } from '../../memory/store';
+import { searchEpisodic, listPods } from '../../memory/store';
 import { getWorkContext, formatWorkContextForPrompt } from '../work-context';
-
-// Тип Fact (локально, т.к. единого types/index.ts в этой версии нет)
-interface Fact {
-  id?: number;
-  category: 'user' | 'project' | 'preference' | 'task';
-  content: string;
-  created_at?: string;
-  last_used?: string | null;
-  use_count?: number;
-  score?: number;
-}
+import { getIdentity, buildIdentityPrompt } from '../identity';
+import { getActiveGoals, formatGoalsForPrompt } from '../executive';
+import { formatReviewForPrompt } from '../self-review';
+import { buildWorldState, formatWorldStateForPrompt } from '../world-model';
+import { getMetaInstructions, loadPreferences } from '../meta-learning';
+import { getModeInstructions, resolveMode, setMode, ExecutionMode } from '../modes';
+import { detectIntent } from '../intent';
+import { getCurrentState, getStateInstructions } from '../states';
+import { formatThoughtsForPrompt } from '../monologue';
 
 // ============================================================
 // ТИПЫ
@@ -46,6 +44,8 @@ export interface DynamicContext {
     language: 'ru' | 'en';
     formality: 'formal' | 'informal';
   };
+  /** Режим выполнения (code/research/creative/chat/system/default) */
+  mode?: ExecutionMode;
 }
 
 export interface DynamicPromptResult {
@@ -64,18 +64,9 @@ export interface DynamicPromptResult {
 // БАЗОВЫЙ ПРОМПТ (личность U.N.A.)
 // ============================================================
 
-const BASE_PERSONALITY = `Ты — U.N.A. (Universal Neural Assistant), персональный ИИ-компаньон.
-
-# Идентичность
-- Женский голос и характер.
-- Спокойная, компетентная, тёплая — но не фамильярная.
-- Говоришь по делу, без воды и без эмодзи в речи.
-- На «вы» по умолчанию. Если пользователь попросил «ты» — переходишь.
-- Лёгкий интеллигентный юмор допустим, без сарказма.
-
+const COMMON_INSTRUCTIONS = `
 # Рассуждение (Chain-of-Thought)
 Перед каждым ответом рассуждай пошагово в блоке <think>...</think>.
-НЕ показывай содержимое <think> пользователю — используй только для внутренней проверки.
 После рассуждения дай чистый ответ.
 
 # Правила безопасности
@@ -155,12 +146,6 @@ function getPreferenceAdaptation(prefs: DynamicContext['userPreferences']): stri
   return result;
 }
 
-function getFactsAdaptation(facts: Fact[]): string {
-  if (facts.length === 0) return '';
-  const factsText = facts.map(f => `- [${f.category}] ${f.content}`).join('\n');
-  return `\n\n# Что ты знаешь о пользователе\n${factsText}`;
-}
-
 function getEpisodicAdaptation(conversations: Array<{ content: string; timestamp: string }>): string {
   if (conversations.length === 0) return '';
   const convText = conversations
@@ -232,6 +217,11 @@ export function detectEmotion(message: string): Emotion {
     return 'anxious';
   }
 
+  // Спокойствие
+  if (/\b(нормально|спокойно|всё хорошо|в порядке|ок|okay|fine|отдыхаю|расслаб)\b/i.test(lower)) {
+    return 'calm';
+  }
+
   return 'neutral';
 }
 
@@ -255,6 +245,9 @@ export async function buildDynamicPrompt(
   userMessage: string,
   context?: Partial<DynamicContext>
 ): Promise<DynamicPromptResult> {
+  // 0. Загружаем Meta Learning
+  loadPreferences();
+
   // 1. Определяем контекст
   const timeOfDay = context?.timeOfDay ?? detectTimeOfDay();
   const emotion = context?.emotion ?? detectEmotion(userMessage);
@@ -278,8 +271,18 @@ export async function buildDynamicPrompt(
 
   const adaptations: string[] = [];
 
-  // 2. Начинаем с базовой личности
-  let prompt = BASE_PERSONALITY;
+  // 2. Строим личность из Identity Manager (model-agnostic)
+  const identity = getIdentity();
+  let prompt = buildIdentityPrompt(identity) + COMMON_INSTRUCTIONS;
+
+  // 2.1 Режим выполнения (Multi-Agent: один контекст, разные инструменты)
+  if (context?.mode) {
+    setMode(context.mode);
+  } else {
+    // Автоопределение режима из сообщения
+    resolveMode(detectIntent(userMessage));
+  }
+  prompt += getModeInstructions();
 
   // 3. Добавляем адаптации
   const emotionAdj = getEmotionAdaptation(emotion);
@@ -294,16 +297,8 @@ export async function buildDynamicPrompt(
   const prefAdj = getPreferenceAdaptation(ctx.userPreferences);
   if (prefAdj) { prompt += prefAdj; adaptations.push('preferences'); }
 
-  // 4. RAG: вспоминаем факты
-  let factsCount = 0;
-  try {
-    const facts = await recallFacts(userMessage, 5);
-    factsCount = facts.length;
-    const factsAdj = getFactsAdaptation(facts);
-    if (factsAdj) { prompt += factsAdj; adaptations.push('facts'); }
-  } catch (e) {
-    console.warn('[DynamicPrompt] recallFacts failed:', e);
-  }
+  // 4. RAG skipped: факты подгружаются через RLM в HOT контексте
+  // (recallFacts вызывается в rlm.ts, не дублируем)
 
   // 5. RAG: ищем в эпизодической памяти
   let conversationsCount = 0;
@@ -329,10 +324,84 @@ export async function buildDynamicPrompt(
     console.warn('[DynamicPrompt] work context failed:', e);
   }
 
+  // 8. Memory Pods — доступные модули памяти
+  try {
+    const pods = listPods();
+    if (pods.length > 0) {
+      const podsText = pods.map((p) => `- ${p.name}: ${p.description} (${p.factCount} фактов)`).join('\n');
+      prompt += `\n\n# Доступные модули памяти\nТвоя память разделена на тематические модули. Используй [MEM] create_pod для создания нового.\n${podsText}`;
+      adaptations.push('memory_pods');
+    }
+  } catch (e) {
+    console.warn('[DynamicPrompt] listPods failed:', e);
+  }
+
+  // 9. Executive Manager — текущие цели
+  try {
+    const goalsPrompt = formatGoalsForPrompt();
+    if (goalsPrompt) {
+      prompt += goalsPrompt;
+      adaptations.push('goals');
+    }
+  } catch (e) {
+    console.warn('[DynamicPrompt] goals failed:', e);
+  }
+
+  // 10. Self Review — уроки из прошлых ответов
+  try {
+    const reviewPrompt = formatReviewForPrompt();
+    if (reviewPrompt) {
+      prompt += reviewPrompt;
+      adaptations.push('self_review');
+    }
+  } catch (e) {
+    console.warn('[DynamicPrompt] self-review failed:', e);
+  }
+
+  // 11. World Model — модель окружения
+  try {
+    const worldState = await buildWorldState();
+    const worldPrompt = formatWorldStateForPrompt(worldState);
+    prompt += worldPrompt;
+    adaptations.push('world_model');
+  } catch (e) {
+    console.warn('[DynamicPrompt] world model failed:', e);
+  }
+
+  // 12. Meta Learning — выученные паттерны
+  try {
+    const metaPrompt = getMetaInstructions();
+    if (metaPrompt) {
+      prompt += metaPrompt;
+      adaptations.push('meta_learning');
+    }
+  } catch (e) {
+    console.warn('[DynamicPrompt] meta-learning failed:', e);
+  }
+
+  // 13. Состояние UNA (Sleep States)
+  try {
+    prompt += getStateInstructions();
+    adaptations.push(`state:${getCurrentState()}`);
+  } catch (e) {
+    console.warn('[DynamicPrompt] state failed:', e);
+  }
+
+  // 14. Внутренний монолог (Internal Monologue)
+  try {
+    const thoughtPrompt = formatThoughtsForPrompt();
+    if (thoughtPrompt) {
+      prompt += thoughtPrompt;
+      adaptations.push('thoughts');
+    }
+  } catch (e) {
+    console.warn('[DynamicPrompt] monologue failed:', e);
+  }
+
   return {
     systemPrompt: prompt,
     contextUsed: {
-      factsRecalled: factsCount,
+      factsRecalled: 0, // RLM handles fact recall
       conversationsRecalled: conversationsCount,
       emotion,
       timeOfDay,

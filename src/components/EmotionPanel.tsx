@@ -4,7 +4,8 @@
  */
 
 import { useEffect, useState } from 'react';
-import { Brain, TrendingUp, Smile, Frown, AlertCircle, Heart } from 'lucide-react';
+import { TrendingUp, AlertCircle } from 'lucide-react';
+import { BrainIcon, SmileIcon, FrownIcon, HeartIcon } from '@/components/ui/animated-icons';
 
 interface EmotionSummary {
   emotion: string;
@@ -18,14 +19,14 @@ interface EmotionPanelProps {
   // Пока заглушка для UI
 }
 
-const EMOTION_META: Record<string, { label: string; color: string; icon: typeof Smile }> = {
-  happy: { label: 'Радость', color: '#10B981', icon: Smile },
-  sad: { label: 'Грусть', color: '#6366F1', icon: Frown },
+const EMOTION_META: Record<string, { label: string; color: string; icon: React.ComponentType<{ size?: number; className?: string; style?: React.CSSProperties }> }> = {
+  happy: { label: 'Радость', color: '#10B981', icon: SmileIcon },
+  sad: { label: 'Грусть', color: '#6366F1', icon: FrownIcon },
   frustrated: { label: 'Раздражение', color: '#EF4444', icon: AlertCircle },
-  excited: { label: 'Волнение', color: '#F59E0B', icon: Heart },
+  excited: { label: 'Волнение', color: '#F59E0B', icon: HeartIcon },
   anxious: { label: 'Тревога', color: '#8B5CF6', icon: AlertCircle },
-  calm: { label: 'Спокойствие', color: '#06B6D4', icon: Smile },
-  neutral: { label: 'Нейтрально', color: '#64748B', icon: Brain },
+  calm: { label: 'Спокойствие', color: '#06B6D4', icon: SmileIcon },
+  neutral: { label: 'Нейтрально', color: '#64748B', icon: BrainIcon },
 };
 
 export function EmotionPanel({}: EmotionPanelProps) {
@@ -51,7 +52,7 @@ export function EmotionPanel({}: EmotionPanelProps) {
   return (
     <div className="flex flex-col h-full bg-slate-950/60 border border-una-500/20 rounded-lg overflow-hidden">
       <div className="flex items-center gap-2 px-4 py-2.5 border-b border-una-500/20 bg-slate-900/60">
-        <Brain className="h-4 w-4 text-una-400" />
+        <BrainIcon size={16} className="text-una-400" />
         <h2 className="text-xs font-mono uppercase tracking-wider text-una-300">Эмоции недели</h2>
       </div>
 
@@ -80,7 +81,7 @@ export function EmotionPanel({}: EmotionPanelProps) {
                 <div key={e.emotion} className="space-y-1">
                   <div className="flex items-center justify-between text-xs">
                     <div className="flex items-center gap-2">
-                      <Icon className="h-3 w-3" style={{ color: meta.color }} />
+                      <Icon size={12} style={{ color: meta.color }} />
                       <span className="text-slate-300">{meta.label}</span>
                     </div>
                     <span className="text-slate-500 font-mono">

@@ -14,7 +14,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../lib/store';
 import { useUNA } from '../hooks/useUNA';
 import { UnaAvatar, AvatarEmotion, AvatarStatus } from './UnaAvatar';
-import { Send, Minimize2, Mic } from 'lucide-react';
+import { Minimize2 } from 'lucide-react';
+import { SendIcon } from '@/components/ui/animated-icons';
 
 interface ProactiveSuggestion {
   id: string;
@@ -214,7 +215,7 @@ export function MiniOverlay() {
           disabled={!input.trim() || status === 'thinking'}
           className="p-1.5 rounded-lg bg-una-600 hover:bg-una-500 disabled:opacity-30 text-white shrink-0"
         >
-          <Send className="h-3 w-3" />
+          <SendIcon size={12} />
         </button>
       </div>
 

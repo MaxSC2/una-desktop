@@ -2,7 +2,25 @@
  * Tests for ai/web-tools.ts
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+
+vi.mock('dns', () => ({
+  default: {
+    resolve4: vi.fn((hostname: string, cb: (err: Error | null, addresses?: string[]) => void) => {
+      cb(null, hostname.includes('localhost') ? ['127.0.0.1'] : ['93.184.216.34']);
+    }),
+    resolve6: vi.fn((_hostname: string, cb: (err: Error | null, addresses?: string[]) => void) => {
+      cb(Object.assign(new Error('ENODATA'), { code: 'ENODATA' }));
+    }),
+  },
+  resolve4: vi.fn((hostname: string, cb: (err: Error | null, addresses?: string[]) => void) => {
+    cb(null, hostname.includes('localhost') ? ['127.0.0.1'] : ['93.184.216.34']);
+  }),
+  resolve6: vi.fn((_hostname: string, cb: (err: Error | null, addresses?: string[]) => void) => {
+    cb(Object.assign(new Error('ENODATA'), { code: 'ENODATA' }));
+  }),
+}));
+
 import { isUrlSafe } from '../../electron/ai/web-tools';
 
 describe('isUrlSafe', () => {
@@ -17,8 +35,8 @@ describe('isUrlSafe', () => {
     ];
 
     for (const url of validUrls) {
-      it(`allows "${url}"`, () => {
-        const result = isUrlSafe(url);
+      it(`allows "${url}"`, async () => {
+        const result = await isUrlSafe(url);
         expect(result.safe).toBe(true);
       });
     }
@@ -33,8 +51,8 @@ describe('isUrlSafe', () => {
     ];
 
     for (const url of blockedUrls) {
-      it(`blocks "${url}"`, () => {
-        const result = isUrlSafe(url);
+      it(`blocks "${url}"`, async () => {
+        const result = await isUrlSafe(url);
         expect(result.safe).toBe(false);
         expect(result.reason).toMatch(/localhost|SSRF/i);
       });
@@ -50,8 +68,8 @@ describe('isUrlSafe', () => {
     ];
 
     for (const url of blockedUrls) {
-      it(`blocks "${url}"`, () => {
-        expect(isUrlSafe(url).safe).toBe(false);
+      it(`blocks "${url}"`, async () => {
+        expect((await isUrlSafe(url)).safe).toBe(false);
       });
     }
   });
@@ -69,8 +87,8 @@ describe('isUrlSafe', () => {
     ];
 
     for (const url of blockedUrls) {
-      it(`blocks "${url}"`, () => {
-        expect(isUrlSafe(url).safe).toBe(false);
+      it(`blocks "${url}"`, async () => {
+        expect((await isUrlSafe(url)).safe).toBe(false);
       });
     }
   });
@@ -85,16 +103,16 @@ describe('isUrlSafe', () => {
     ];
 
     for (const url of blockedUrls) {
-      it(`blocks "${url}"`, () => {
-        expect(isUrlSafe(url).safe).toBe(false);
+      it(`blocks "${url}"`, async () => {
+        expect((await isUrlSafe(url)).safe).toBe(false);
       });
     }
   });
 
   describe('SSRF protection — mDNS', () => {
-    it('blocks .local domains', () => {
-      expect(isUrlSafe('http://myrouter.local').safe).toBe(false);
-      expect(isUrlSafe('http://printer.local:80').safe).toBe(false);
+    it('blocks .local domains', async () => {
+      expect((await isUrlSafe('http://myrouter.local')).safe).toBe(false);
+      expect((await isUrlSafe('http://printer.local:80')).safe).toBe(false);
     });
   });
 
@@ -110,8 +128,8 @@ describe('isUrlSafe', () => {
     ];
 
     for (const url of blockedUrls) {
-      it(`blocks protocol "${url.split(':')[0]}"`, () => {
-        const result = isUrlSafe(url);
+      it(`blocks protocol "${url.split(':')[0]}"`, async () => {
+        const result = await isUrlSafe(url);
         expect(result.safe).toBe(false);
         expect(result.reason).toMatch(/протокол|protocol/i);
       });
@@ -128,26 +146,26 @@ describe('isUrlSafe', () => {
     ];
 
     for (const url of invalidUrls) {
-      it(`rejects "${url}"`, () => {
-        const result = isUrlSafe(url);
+      it(`rejects "${url}"`, async () => {
+        const result = await isUrlSafe(url);
         expect(result.safe).toBe(false);
       });
     }
   });
 
   describe('edge cases', () => {
-    it('handles null/undefined input', () => {
-      expect(isUrlSafe(null as unknown as string).safe).toBe(false);
-      expect(isUrlSafe(undefined as unknown as string).safe).toBe(false);
+    it('handles null/undefined input', async () => {
+      expect((await isUrlSafe(null as unknown as string)).safe).toBe(false);
+      expect((await isUrlSafe(undefined as unknown as string)).safe).toBe(false);
     });
 
-    it('handles URLs with authentication', () => {
-      expect(isUrlSafe('https://user:pass@example.com').safe).toBe(true);
-      expect(isUrlSafe('https://user:pass@localhost').safe).toBe(false);
+    it('handles URLs with authentication', async () => {
+      expect((await isUrlSafe('https://user:pass@example.com')).safe).toBe(true);
+      expect((await isUrlSafe('https://user:pass@localhost')).safe).toBe(false);
     });
 
-    it('handles URLs with fragments', () => {
-      expect(isUrlSafe('https://example.com/page#section').safe).toBe(true);
+    it('handles URLs with fragments', async () => {
+      expect((await isUrlSafe('https://example.com/page#section')).safe).toBe(true);
     });
   });
 });

@@ -5,7 +5,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Folder, FileText, ChevronRight, RefreshCw, ArrowUp, Lock } from 'lucide-react';
+import { RefreshCw, ArrowUp, Lock } from 'lucide-react';
+import { FoldersIcon, FileTextIcon, ChevronRightIcon } from '@/components/ui/animated-icons';
 
 export function FilesPanel() {
   const [currentPath, setCurrentPath] = useState('');
@@ -48,7 +49,7 @@ export function FilesPanel() {
     <div className="flex flex-col h-full bg-slate-950/60 border border-una-500/20 rounded-lg overflow-hidden">
       <div className="flex items-center justify-between px-4 py-2.5 border-b border-una-500/20 bg-slate-900/60">
         <div className="flex items-center gap-2">
-          <Folder className="h-4 w-4 text-una-400" />
+          <FoldersIcon size={16} className="text-una-400" />
           <h2 className="text-xs font-mono uppercase tracking-wider text-una-300">Файлы</h2>
         </div>
         <div className="flex gap-1">
@@ -78,9 +79,9 @@ export function FilesPanel() {
             className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm font-mono hover:bg-una-500/10 text-slate-200 text-left"
           >
             {item.type === 'directory' ? (
-              <Folder className="h-4 w-4 text-una-400 shrink-0" />
+              <FoldersIcon size={16} className="text-una-400 shrink-0" />
             ) : (
-              <FileText className="h-4 w-4 text-slate-400 shrink-0" />
+              <FileTextIcon size={16} className="text-slate-400 shrink-0" />
             )}
             <span className="truncate flex-1">{item.name}</span>
             {item.type === 'file' && (
@@ -88,7 +89,7 @@ export function FilesPanel() {
                 {item.size > 1024 ? `${(item.size / 1024).toFixed(1)}KB` : `${item.size}B`}
               </span>
             )}
-            {item.type === 'directory' && <ChevronRight className="h-4 w-4 text-slate-600 shrink-0" />}
+            {item.type === 'directory' && <ChevronRightIcon size={16} className="text-slate-600 shrink-0" />}
           </button>
         ))}
         {items.length === 0 && !loading && <div className="text-center text-slate-500 text-xs py-8">Папка пуста</div>}

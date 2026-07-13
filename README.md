@@ -16,7 +16,7 @@ U.N.A. — десктопное приложение (Electron + React + TypeScr
 - ⚡ **Команды** — выполняет shell-команды с проверкой безопасности
 - 🖥️ **Экран** — делает скриншоты и анализирует через VLM
 - 🛡️ **Безопасность** — запрещает `rm -rf /`, требует подтверждения для опасных операций
-- 🧠 **Память** — 5-уровневая архитектура (working / session / episodic / semantic / procedural)
+- 🧠 **Память** — RLM (HOT/WARM/COLD) + Memory Pods (тематические контейнеры фактов)
 - 📌 **Фоновый режим** — сворачивается в tray, активируется горячей клавишей
 
 ## Железо
@@ -105,10 +105,13 @@ npm run package:mac
 
 ## Документация
 
+- [Манифест](UNA_MANIFEST.md) — философия и принципы проекта
 - [Архитектура](docs/ARCHITECTURE.md) — как всё устроено
-- [Память](docs/MEMORY.md) — 5-уровневая система памяти
-- [Железо](docs/HARDWARE.md) — требования и оптимизация под ваше железо
-- [Установка](docs/INSTALL.md) — подробный гайд по установке
+- [Память](docs/MEMORY.md) — RLM + Memory Pods
+- [Module: Memory](electron/memory/README.md) — store, rlm, pods
+- [Module: AI](electron/ai/README.md) — LLM, embed, intent, tools
+- [Железо](docs/HARDWARE.md) — требования и оптимизация
+- [Установка](docs/INSTALL.md) — подробный гайд
 - [Безопасность](docs/SECURITY.md) — как работает защита
 - [Фоновый режим](docs/BACKGROUND.md) — tray, overlay, lock screen
 
@@ -130,7 +133,9 @@ una-desktop/
 │   └── styles/            # CSS
 ├── prompts/               # Системный промпт U.N.A.
 ├── docs/                  # Документация
-└── assets/                # Иконки, изображения
+├── assets/                # Иконки, изображения
+├── UNA_MANIFEST.md        # Философия и принципы проекта
+└── AGENTS.md              # Памятка для ИИ-кодеров
 ```
 
 ## Лицензия

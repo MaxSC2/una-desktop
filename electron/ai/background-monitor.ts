@@ -10,13 +10,16 @@
 
 import { getWorkContext, WorkContext, updateActivity } from './work-context';
 import { saveFact } from '../memory/store';
+import { getProactiveConfig } from './config';
 
 let monitorTimer: ReturnType<typeof setInterval> | null = null;
 let lastSnapshot: WorkContext | null = null;
 let monitorCount: number = 0;
 
-const MONITOR_INTERVAL_MS = 5 * 60 * 1000; // 5 минут
-const SAVE_PATTERN_INTERVAL = 6; // сохранять паттерн каждые 6 проверок (30 мин)
+function minutes(value: number, fallback: number, min: number, max: number): number {
+  if (!Number.isFinite(value)) return fallback;
+  return Math.min(Math.max(value, min), max);
+}
 
 /**
  * Запустить фоновый мониторинг.
@@ -24,11 +27,19 @@ const SAVE_PATTERN_INTERVAL = 6; // сохранять паттерн кажды
 export function startBackgroundMonitor(): void {
   if (monitorTimer) return;
 
+  const cfg = getProactiveConfig();
+  if (!cfg.backgroundMonitorEnabled) {
+    console.log('[BackgroundMonitor] Disabled in config');
+    return;
+  }
+
+  const intervalMinutes = minutes(cfg.backgroundMonitorIntervalMinutes, 5, 1, 24 * 60);
+
   monitorTimer = setInterval(async () => {
     await collectSnapshot();
-  }, MONITOR_INTERVAL_MS);
+  }, intervalMinutes * 60 * 1000);
 
-  console.log('[BackgroundMonitor] Started (interval: 5 min)');
+  console.log(`[BackgroundMonitor] Started (interval: ${intervalMinutes} min)`);
 }
 
 /**
@@ -46,13 +57,17 @@ export function stopBackgroundMonitor(): void {
  * Собрать snapshot контекста.
  */
 async function collectSnapshot(): Promise<void> {
+  const cfg = getProactiveConfig();
+  if (!cfg.backgroundMonitorEnabled) return;
+
   try {
     const ctx = await getWorkContext();
     lastSnapshot = ctx;
     monitorCount++;
 
     // Каждые 30 минут — сохраняем ключевые паттерны в память
-    if (monitorCount % SAVE_PATTERN_INTERVAL === 0) {
+    const saveEveryChecks = Math.min(Math.max(cfg.backgroundSaveEveryChecks, 1), 288);
+    if (monitorCount % saveEveryChecks === 0) {
       await saveSnapshotToMemory(ctx);
     }
 

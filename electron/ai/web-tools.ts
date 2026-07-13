@@ -1,7 +1,7 @@
 /**
  * Web tools — поиск, загрузка страниц, скачивание файлов.
  *
- * Использует z-ai-web-dev-sdk для web_search (бесплатный内置).
+ * web_search использует DuckDuckGo Lite (без API-ключа).
  * Для web_fetch используется node-fetch (без зависимостей от SDK).
  * Для web_download — stream в файл.
  *
@@ -15,13 +15,35 @@
 import { promises as fs } from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { exec } from 'child_process';
 import { promisify } from 'util';
 import * as dns from 'dns';
 
-const execAsync = promisify(exec);
 const dnsResolve4 = promisify(dns.resolve4);
 const dnsResolve6 = promisify(dns.resolve6);
+
+/**
+ * Простой rate limiter: не более N запросов в секунду на хост.
+ */
+class SimpleRateLimiter {
+  private hits = new Map<string, number[]>();
+  constructor(private maxRequests: number, private windowMs: number) {}
+
+  check(hostname: string): boolean {
+    const now = Date.now();
+    const windowStart = now - this.windowMs;
+    let timestamps = this.hits.get(hostname) ?? [];
+    timestamps = timestamps.filter(t => t > windowStart);
+    if (timestamps.length >= this.maxRequests) {
+      this.hits.set(hostname, timestamps);
+      return false;
+    }
+    timestamps.push(now);
+    this.hits.set(hostname, timestamps);
+    return true;
+  }
+}
+
+const webRateLimiter = new SimpleRateLimiter(10, 60_000); // 10 запросов в минуту на хост
 
 export interface WebToolResult {
   success: boolean;
@@ -161,7 +183,7 @@ export async function isUrlSafe(url: string): Promise<{ safe: boolean; reason?: 
 }
 
 /**
- * web_search — поиск в интернете через z-ai-web-dev-sdk.
+ * web_search — поиск в интернете через DuckDuckGo Lite (POST, без API-ключа).
  * Возвращает массив результатов: title, url, snippet.
  */
 export async function web_search(args: {
@@ -177,33 +199,68 @@ export async function web_search(args: {
   const query = args.query.trim();
 
   try {
-    const ZAI = (await import('z-ai-web-dev-sdk')).default;
-    const zai = await ZAI.create();
+    // DuckDuckGo Lite работает через POST (GET возвращает CAPTCHA)
+    const resp = await fetch('https://lite.duckduckgo.com/lite/', {
+      method: 'POST',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({ q: query }),
+      signal: AbortSignal.timeout(15000),
+    });
 
-    const searchArgs: { query: string; num: number; recency_days?: number } = { query, num };
-    if (args.recency_days && args.recency_days > 0) {
-      searchArgs.recency_days = args.recency_days;
+    if (!resp.ok) {
+      return { success: false, error: `DuckDuckGo returned ${resp.status}` };
     }
 
-    const results = (await zai.functions.invoke('web_search', searchArgs)) as Array<{
-      url: string;
-      name: string;
-      snippet: string;
-      host_name?: string;
-      date?: string;
-    }>;
+    const html = await resp.text();
 
-    if (!Array.isArray(results)) {
-      return { success: false, error: 'Неверный формат ответа от web_search' };
+    // Парсим HTML — вытаскиваем заголовки, URL и сниппеты
+    const results: Array<{ title: string; url: string; snippet: string }> = [];
+
+    // DuckDuckGo Lite структура: <a class='result-link'> → <td class='result-snippet'> → <span class='link-text'>
+    const titleRegex = /<a rel="nofollow"[^>]*href="(https?:\/\/[^"]+)"[^>]*class='result-link'[^>]*>([\s\S]*?)<\/a>/gi;
+    const snippetRegex = /<td class='result-snippet'>([\s\S]*?)<\/td>/gi;
+    const urlRegex = /<span class='link-text'>([\s\S]*?)<\/span>/gi;
+
+    const titles: Array<{ url: string; title: string }> = [];
+    let m;
+    while ((m = titleRegex.exec(html)) !== null && titles.length < num) {
+      const title = m[2].replace(/<[^>]*>/g, '').trim();
+      if (title) titles.push({ url: m[1], title });
+    }
+
+    const snippets: string[] = [];
+    while ((m = snippetRegex.exec(html)) !== null) {
+      snippets.push(m[1].replace(/<[^>]*>/g, '').trim());
+    }
+
+    const cleanUrls: string[] = [];
+    while ((m = urlRegex.exec(html)) !== null) {
+      cleanUrls.push(m[1].trim());
+    }
+
+    for (let i = 0; i < Math.min(titles.length, num); i++) {
+      results.push({
+        title: titles[i].title,
+        url: titles[i].url,
+        snippet: snippets[i] ?? '',
+      });
+    }
+
+    if (results.length === 0) {
+      // Fallback: попробуем Google
+      return await webSearchFallback(query, num);
     }
 
     const formatted = results.slice(0, num).map((r, i) => ({
       index: i + 1,
-      title: r.name ?? '(без заголовка)',
+      title: r.title,
       url: r.url,
-      snippet: r.snippet ?? '',
-      host: r.host_name ?? '',
-      date: r.date ?? '',
+      snippet: r.snippet,
+      host: new URL(r.url).hostname,
+      date: '',
     }));
 
     return {
@@ -216,8 +273,61 @@ export async function web_search(args: {
     };
   } catch (e) {
     const msg = (e as Error).message ?? String(e);
+    // Fallback при любой ошибке
+    try { return await webSearchFallback(query, num); } catch { }
     return { success: false, error: `web_search failed: ${msg}` };
   }
+}
+
+/**
+ * Fallback — поиск через Bing HTML (без API-ключа).
+ */
+async function webSearchFallback(query: string, num: number): Promise<WebToolResult> {
+  const url = `https://www.bing.com/search?q=${encodeURIComponent(query)}&count=${num}`;
+  const resp = await fetch(url, {
+    method: 'GET',
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      'Accept': 'text/html',
+    },
+    signal: AbortSignal.timeout(15000),
+  });
+
+  if (!resp.ok) {
+    return { success: false, error: `Bing returned ${resp.status}` };
+  }
+
+  const html = await resp.text();
+  const results: Array<{ title: string; url: string; snippet: string }> = [];
+  const resultRegex = /<h2><a[^>]*href="(https?:\/\/[^"]+)"[^>]*>([\s\S]*?)<\/a><\/h2>[\s\S]*?<p[^>]*>([\s\S]*?)<\/p>/gi;
+  let match;
+
+  while ((match = resultRegex.exec(html)) !== null && results.length < num) {
+    const title = match[2].replace(/<[^>]*>/g, '').trim();
+    const url = match[1];
+    const snippet = match[3].replace(/<[^>]*>/g, '').trim();
+    if (title && url.startsWith('http')) {
+      results.push({ title, url, snippet });
+    }
+  }
+
+  const formatted = results.slice(0, num).map((r, i) => ({
+    index: i + 1,
+    title: r.title,
+    url: r.url,
+    snippet: r.snippet,
+    host: new URL(r.url).hostname,
+    date: '',
+  }));
+
+  return {
+    success: true,
+    data: {
+      query,
+      count: formatted.length,
+      results: formatted,
+    },
+  };
 }
 
 /**
@@ -237,6 +347,11 @@ export async function web_fetch(args: {
   const urlCheck = await isUrlSafe(args.url);
   if (!urlCheck.safe) {
     return { success: false, error: urlCheck.reason ?? 'URL небезопасен' };
+  }
+
+  const hostname = new URL(args.url).hostname;
+  if (!webRateLimiter.check(hostname)) {
+    return { success: false, error: `Rate limit превышен для ${hostname}: не более 10 запросов в минуту` };
   }
 
   const maxBytes = Math.min(args.max_bytes ?? MAX_FETCH_BYTES, MAX_FETCH_BYTES);
@@ -347,6 +462,11 @@ export async function web_download(args: {
   const urlCheck = await isUrlSafe(args.url);
   if (!urlCheck.safe) {
     return { success: false, error: urlCheck.reason ?? 'URL небезопасен' };
+  }
+
+  const hostname = new URL(args.url).hostname;
+  if (!webRateLimiter.check(hostname)) {
+    return { success: false, error: `Rate limit превышен для ${hostname}: не более 10 запросов в минуту` };
   }
 
   const destDir = args.dest_dir
@@ -474,6 +594,8 @@ function extractTextFromHtml(html: string): string {
   text = text.replace(/<style[\s\S]*?<\/style>/gi, '');
   text = text.replace(/<noscript[\s\S]*?<\/noscript>/gi, '');
   text = text.replace(/<!--[\s\S]*?-->/g, '');
+  // Удаляем event handler'ы (onclick, onerror, onload, onmouseover, и т.д.)
+  text = text.replace(/\son\w+\s*=\s*["'][^"']*["']/gi, '');
 
   // Удаляем все теги
   text = text.replace(/<\/?(p|div|h[1-6]|br|li|ul|ol|span|a|img|table|tr|td|th|strong|em|b|i|code|pre|blockquote)[^>]*>/gi, '\n');

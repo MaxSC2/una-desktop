@@ -11,7 +11,8 @@
  */
 
 import { useEffect, useState } from 'react';
-import { GitBranch, FileCode, Clock, AlertCircle, Coffee, CheckCircle2 } from 'lucide-react';
+import { GitBranch, FileCode, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { ClockIcon, CoffeeIcon } from '@/components/ui/animated-icons';
 
 interface GitRepoInfo {
   path: string;
@@ -89,7 +90,7 @@ export function WorkPanel() {
           <h2 className="text-xs font-mono uppercase tracking-wider text-una-300">Рабочий контекст</h2>
         </div>
         <div className="flex items-center gap-1.5 text-[11px] font-mono text-slate-400">
-          <Clock className="h-3 w-3" />
+          <ClockIcon size={12} />
           {hours > 0 ? `${hours}ч ` : ''}{mins}м
         </div>
       </div>
@@ -119,7 +120,7 @@ export function WorkPanel() {
         {data.isLongSession && (
           <div className="rounded-lg border border-amber-500/30 bg-amber-950/20 p-3">
             <div className="flex items-center gap-2">
-              <Coffee className="h-3.5 w-3.5 text-amber-400" />
+              <CoffeeIcon size={14} className="text-amber-400" />
               <p className="text-xs text-amber-200">Сессия 3+ часов. Перерыв?</p>
             </div>
           </div>

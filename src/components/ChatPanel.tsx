@@ -8,7 +8,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../lib/store';
 import { useUNA } from '../hooks/useUNA';
 import { MarkdownRenderer } from './MarkdownRenderer';
-import { ChevronDown, ChevronRight, Wrench, Volume2, VolumeX, Trash2, Send, Mic, Square, Activity, Copy, Check, StopCircle } from 'lucide-react';
+import { Square, StopCircle } from 'lucide-react';
+import { ChevronDownIcon, ChevronRightIcon, WrenchIcon, SendIcon, MicIcon, ActivityIcon, CopyIcon, CheckIcon, DeleteIcon, Volume2Icon, VolumeXIcon } from '@/components/ui/animated-icons';
 import { UnaMascot, MascotEmotion, MascotStatus } from './UnaMascot';
 import { RiveMascot } from './RiveMascot';
 
@@ -93,21 +94,21 @@ export function ChatPanel() {
             onClick={() => setStreamingEnabled(!streamingEnabled)}
             title={streamingEnabled ? 'Стриминг включён (печатает по слову)' : 'Стриминг выключен (ждёт полный ответ)'}
           >
-            <Activity className="h-4 w-4" />
+            <ActivityIcon size={16} />
           </button>
           <button
             className="p-1.5 hover:bg-una-500/10 rounded text-slate-400 hover:text-una-300"
             onClick={() => setVoiceEnabled(!voiceEnabled)}
             title={voiceEnabled ? 'Выключить голос' : 'Включить голос'}
           >
-            {voiceEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+            {voiceEnabled ? <Volume2Icon size={16} /> : <VolumeXIcon size={16} />}
           </button>
           <button
             className="p-1.5 hover:bg-red-500/10 rounded text-slate-400"
             onClick={clearMessages}
             title="Очистить"
           >
-            <Trash2 className="h-4 w-4" />
+            <DeleteIcon size={16} />
           </button>
         </div>
       </div>
@@ -151,7 +152,7 @@ export function ChatPanel() {
             } disabled:opacity-50`}
             title={listening ? 'Остановить запись' : 'Голосовая команда'}
           >
-            {listening ? <Square className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+            {listening ? <Square className="h-4 w-4" /> : <MicIcon size={16} />}
           </button>
           <textarea
             value={input}
@@ -181,7 +182,7 @@ export function ChatPanel() {
               disabled={!input.trim()}
               className="bg-una-600 hover:bg-una-500 disabled:opacity-50 text-white p-2.5 rounded-lg shrink-0"
             >
-              <Send className="h-4 w-4" />
+              <SendIcon size={16} />
             </button>
           )}
         </div>
@@ -244,7 +245,7 @@ function MessageBubble({ msg, isStreaming = false }: { msg: any; isStreaming?: b
             className="ml-1 text-slate-600 hover:text-una-300 transition-colors"
             title="Скопировать ответ"
           >
-            {copied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+            {copied ? <CheckIcon size={12} className="text-emerald-400" /> : <CopyIcon size={12} />}
           </button>
         )}
       </div>
@@ -284,7 +285,7 @@ function MessageBubble({ msg, isStreaming = false }: { msg: any; isStreaming?: b
                   onClick={() => setThoughtExpanded(!thoughtExpanded)}
                   className="flex items-center gap-1.5 w-full px-2.5 py-1.5 bg-amber-500/10 text-amber-300/80 hover:bg-amber-500/15 text-[10px] font-mono uppercase tracking-wider"
                 >
-                  {thoughtExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                  {thoughtExpanded ? <ChevronDownIcon size={12} /> : <ChevronRightIcon size={12} />}
                   <span className="animate-pulse">🧠</span>
                   Рассуждение
                 </button>
@@ -317,8 +318,8 @@ function MessageBubble({ msg, isStreaming = false }: { msg: any; isStreaming?: b
               onClick={() => setExpanded(!expanded)}
               className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-slate-400 hover:text-una-300 font-mono"
             >
-              {expanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-              <Wrench className="h-3 w-3" />
+              {expanded ? <ChevronDownIcon size={12} /> : <ChevronRightIcon size={12} />}
+              <WrenchIcon size={12} />
               Инструменты ({msg.toolCalls.length})
             </button>
             {expanded && (

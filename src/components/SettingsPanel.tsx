@@ -5,13 +5,16 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Settings, Cpu, Mic, Volume2, Keyboard, Check, X, Cat, Download, Upload } from 'lucide-react';
+import { Volume2, Keyboard, X, Cat, Upload, Languages } from 'lucide-react';
+import { CogIcon, CpuIcon, MicIcon, CheckIcon, DownloadIcon, BellIcon } from '@/components/ui/animated-icons';
 import { useStore } from '../lib/store';
+import { LANGUAGE_LABELS, Language, useI18n } from '../i18n';
 
 export function SettingsPanel() {
   const [config, setConfig] = useState<any>(null);
   const [ollamaStatus, setOllamaStatus] = useState<{ available: boolean; models: string[] } | null>(null);
   const [saving, setSaving] = useState(false);
+  const { language, setLanguage, t } = useI18n();
 
   useEffect(() => {
     void loadConfig();
@@ -35,13 +38,30 @@ export function SettingsPanel() {
   return (
     <div className="flex flex-col h-full bg-slate-950/60 border border-una-500/20 rounded-lg overflow-hidden">
       <div className="flex items-center gap-2 px-4 py-2.5 border-b border-una-500/20 bg-slate-900/60">
-        <Settings className="h-4 w-4 text-una-400" />
+        <CogIcon size={16} className="text-una-400" />
         <h2 className="text-xs font-mono uppercase tracking-wider text-una-300">Настройки</h2>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {/* LLM */}
-        <Section icon={<Cpu className="h-4 w-4" />} title="LLM (языковая модель)">
+        <Section icon={<Languages className="h-4 w-4" />} title={t('settings.language')}>
+          <Field label={t('settings.language')}>
+            <select
+              value={language}
+              onChange={(e) => setLanguage(e.target.value as Language)}
+              className="bg-slate-950 border border-una-500/30 rounded px-2 py-1 text-sm text-slate-200"
+            >
+              {Object.entries(LANGUAGE_LABELS).map(([code, label]) => (
+                <option key={code} value={code}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </Section>
+
+        {/* LLM */}
+        <Section icon={<CpuIcon size={16} />} title="LLM (языковая модель)">
           <Field label="Режим">
             <select
               value={config.llm.provider}
@@ -90,7 +110,7 @@ export function SettingsPanel() {
           </Field>
           <div className="text-xs">
             Ollama: {ollamaStatus?.available ? (
-              <span className="text-emerald-400 flex items-center gap-1"><Check className="h-3 w-3" /> доступен, моделей: {ollamaStatus.models.length}</span>
+              <span className="text-emerald-400 flex items-center gap-1"><CheckIcon size={12} /> доступен, моделей: {ollamaStatus.models.length}</span>
             ) : (
               <span className="text-rose-400 flex items-center gap-1"><X className="h-3 w-3" /> недоступен</span>
             )}
@@ -98,7 +118,7 @@ export function SettingsPanel() {
         </Section>
 
         {/* ASR */}
-        <Section icon={<Mic className="h-4 w-4" />} title="ASR (распознавание речи)">
+        <Section icon={<MicIcon size={16} />} title="ASR (распознавание речи)">
           <Field label="Режим">
             <select
               value={config.asr.provider}
@@ -177,6 +197,116 @@ export function SettingsPanel() {
           </Field>
         </Section>
 
+        {/* Proactive */}
+        <Section icon={<BellIcon size={16} />} title="Проактивность">
+          <Field label="Предложения U.N.A.">
+            <label className="flex items-center gap-2 text-sm text-slate-300">
+              <input
+                type="checkbox"
+                checked={config.proactive?.enabled ?? true}
+                onChange={(e) =>
+                  setConfig({
+                    ...config,
+                    proactive: { ...config.proactive, enabled: e.target.checked },
+                  })
+                }
+              />
+              Показывать полезные предложения
+            </label>
+          </Field>
+          <div className="grid grid-cols-2 gap-2">
+            <NumberField
+              label="Проверка, мин"
+              value={config.proactive?.checkIntervalMinutes ?? 10}
+              min={1}
+              max={1440}
+              onChange={(value) =>
+                setConfig({
+                  ...config,
+                  proactive: { ...config.proactive, checkIntervalMinutes: value },
+                })
+              }
+            />
+            <NumberField
+              label="Пауза между советами, мин"
+              value={config.proactive?.minSuggestionIntervalMinutes ?? 30}
+              min={1}
+              max={1440}
+              onChange={(value) =>
+                setConfig({
+                  ...config,
+                  proactive: { ...config.proactive, minSuggestionIntervalMinutes: value },
+                })
+              }
+            />
+            <NumberField
+              label="Игноров до тишины"
+              value={config.proactive?.maxIgnored ?? 3}
+              min={1}
+              max={20}
+              onChange={(value) =>
+                setConfig({
+                  ...config,
+                  proactive: { ...config.proactive, maxIgnored: value },
+                })
+              }
+            />
+            <NumberField
+              label="Тишина, часов"
+              value={config.proactive?.quietHoursAfterIgnored ?? 2}
+              min={1}
+              max={24}
+              onChange={(value) =>
+                setConfig({
+                  ...config,
+                  proactive: { ...config.proactive, quietHoursAfterIgnored: value },
+                })
+              }
+            />
+          </div>
+          <Field label="Фоновый мониторинг">
+            <label className="flex items-center gap-2 text-sm text-slate-300">
+              <input
+                type="checkbox"
+                checked={config.proactive?.backgroundMonitorEnabled ?? true}
+                onChange={(e) =>
+                  setConfig({
+                    ...config,
+                    proactive: { ...config.proactive, backgroundMonitorEnabled: e.target.checked },
+                  })
+                }
+              />
+              Собирать рабочий контекст в фоне
+            </label>
+          </Field>
+          <div className="grid grid-cols-2 gap-2">
+            <NumberField
+              label="Мониторинг, мин"
+              value={config.proactive?.backgroundMonitorIntervalMinutes ?? 5}
+              min={1}
+              max={1440}
+              onChange={(value) =>
+                setConfig({
+                  ...config,
+                  proactive: { ...config.proactive, backgroundMonitorIntervalMinutes: value },
+                })
+              }
+            />
+            <NumberField
+              label="Сохранять каждые N проверок"
+              value={config.proactive?.backgroundSaveEveryChecks ?? 6}
+              min={1}
+              max={288}
+              onChange={(value) =>
+                setConfig({
+                  ...config,
+                  proactive: { ...config.proactive, backgroundSaveEveryChecks: value },
+                })
+              }
+            />
+          </div>
+        </Section>
+
         {/* Маскот */}
         <Section icon={<Cat className="h-4 w-4" />} title="Маскот">
           <Field label="Анимация">
@@ -253,7 +383,7 @@ export function SettingsPanel() {
         </div>
 
         {/* Backup */}
-        <Section icon={<Download className="h-4 w-4" />} title="Резервное копирование">
+        <Section icon={<DownloadIcon size={16} />} title="Резервное копирование">
           <div className="grid grid-cols-2 gap-2">
             <button
               onClick={async () => {
@@ -266,7 +396,7 @@ export function SettingsPanel() {
               }}
               className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white py-2 rounded-lg text-sm"
             >
-              <Download className="h-4 w-4" />
+              <DownloadIcon size={16} />
               Экспорт
             </button>
             <button
@@ -313,5 +443,35 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <label className="text-[10px] uppercase tracking-wider text-slate-500 font-mono block mb-1">{label}</label>
       {children}
     </div>
+  );
+}
+
+function NumberField({
+  label,
+  value,
+  min,
+  max,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <Field label={label}>
+      <input
+        type="number"
+        min={min}
+        max={max}
+        value={value}
+        onChange={(e) => {
+          const next = Number(e.target.value);
+          if (Number.isFinite(next)) onChange(Math.min(Math.max(next, min), max));
+        }}
+        className="w-full bg-slate-950 border border-una-500/30 rounded px-2 py-1 text-sm text-slate-200"
+      />
+    </Field>
   );
 }

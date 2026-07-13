@@ -13,7 +13,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../lib/store';
 import { useUNA } from '../hooks/useUNA';
-import { Send, X, Loader2 } from 'lucide-react';
+import { X, Loader2 } from 'lucide-react';
+import { SendIcon } from '@/components/ui/animated-icons';
 
 export function QuickPalette({ onClose }: { onClose: () => void }) {
   const [input, setInput] = useState('');
@@ -83,7 +84,7 @@ export function QuickPalette({ onClose }: { onClose: () => void }) {
               disabled={!input.trim()}
               className="p-2 rounded-lg bg-una-600 hover:bg-una-500 disabled:opacity-30 text-white shrink-0"
             >
-              <Send className="h-4 w-4" />
+              <SendIcon size={16} />
             </button>
           )}
           <button

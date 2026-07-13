@@ -14,14 +14,15 @@
 import { useState, useEffect } from 'react';
 import { useStore, UserProfile } from '../lib/store';
 import { UnaAvatar } from './UnaAvatar';
-import { Check, ChevronRight, ChevronLeft, Sparkles, Eye, Bell } from 'lucide-react';
+import { ChevronLeft } from 'lucide-react';
+import { CheckIcon, ChevronRightIcon, SparklesIcon, EyeIcon, BellIcon } from '@/components/ui/animated-icons';
 
 const STEPS = [
-  { id: 0, title: 'Приветствие', icon: Sparkles },
-  { id: 1, title: 'Как обращаться', icon: Check },
-  { id: 2, title: 'Чем занимаетесь', icon: Check },
-  { id: 3, title: 'Настройки ответов', icon: Check },
-  { id: 4, title: 'Приватность', icon: Check },
+  { id: 0, title: 'Приветствие', icon: SparklesIcon },
+  { id: 1, title: 'Как обращаться', icon: CheckIcon },
+  { id: 2, title: 'Чем занимаетесь', icon: CheckIcon },
+  { id: 3, title: 'Настройки ответов', icon: CheckIcon },
+  { id: 4, title: 'Приватность', icon: CheckIcon },
 ];
 
 export function OnboardingWizard() {
@@ -375,7 +376,7 @@ export function OnboardingWizard() {
             <div className="space-y-5">
               <div className="bg-una-500/10 border border-una-500/30 rounded-lg p-4">
                 <div className="flex items-start gap-3">
-                  <Bell className="w-5 h-5 text-una-400 mt-0.5 shrink-0" />
+                  <BellIcon size={20} className="text-una-400 mt-0.5 shrink-0" />
                   <div className="flex-1">
                     <div className="flex items-center justify-between">
                       <div>
@@ -404,7 +405,7 @@ export function OnboardingWizard() {
 
               <div className="bg-slate-950/40 border border-slate-700/50 rounded-lg p-4">
                 <div className="flex items-start gap-3">
-                  <Eye className="w-5 h-5 text-slate-400 mt-0.5 shrink-0" />
+                  <EyeIcon size={20} className="text-slate-400 mt-0.5 shrink-0" />
                   <div className="flex-1">
                     <div className="flex items-center justify-between">
                       <div>
@@ -471,7 +472,7 @@ export function OnboardingWizard() {
               className="flex items-center gap-1 bg-una-600 hover:bg-una-500 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm"
             >
               Далее
-              <ChevronRight className="w-4 h-4" />
+              <ChevronRightIcon size={16} />
             </button>
           ) : (
             <button
@@ -480,7 +481,7 @@ export function OnboardingWizard() {
               className="flex items-center gap-1 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm"
             >
               {saving ? 'Сохраняю...' : 'Завершить'}
-              <Check className="w-4 h-4" />
+              <CheckIcon size={16} />
             </button>
           )}
         </div>

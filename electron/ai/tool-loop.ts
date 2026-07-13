@@ -24,6 +24,9 @@ import { analyzeImage } from './llm';
 import { classifyCommand } from '../safety/classifier';
 import { parseMemoryTokens, executeMemoryTokens, warmCacheAddMessage } from '../memory/rlm';
 import { detectIntent, filterToolsByIntent } from './intent';
+import { resolveMode, filterToolsByMode, getModeConfig } from './modes';
+import { reviewResponse } from './self-review';
+import { detectCorrection, recordInteraction, learnFromMessage } from './meta-learning';
 
 export interface ToolLoopOptions {
   /** Streaming mode — вызывает onChunk для каждого текстового кусочка */
@@ -86,10 +89,11 @@ export async function executeToolLoop(options: ToolLoopOptions): Promise<ToolLoo
     signal,
   } = options;
 
-  // Определяем намерение пользователя и фильтруем инструменты
+  // Определяем намерение и режим выполнения
   const intent = detectIntent(userMessage);
-  let currentTools = filterToolsByIntent(TOOL_DEFINITIONS, intent);
-  console.log(`[ToolLoop] Intent: ${intent}, tools: ${currentTools.length}/${TOOL_DEFINITIONS.length}`);
+  const mode = resolveMode(intent);
+  let currentTools = filterToolsByMode(TOOL_DEFINITIONS, mode);
+  console.log(`[ToolLoop] Intent: ${intent}, Mode: ${mode}, tools: ${currentTools.length}/${TOOL_DEFINITIONS.length}`);
 
   const messages: ChatMessage[] = [
     { role: 'system', content: systemPrompt },
@@ -124,9 +128,13 @@ export async function executeToolLoop(options: ToolLoopOptions): Promise<ToolLoo
 
     provider = resp.provider;
 
+    // Accumulate text across rounds (fix: finalText was only last round)
+    if (resp.content) {
+      finalText += (finalText ? '\n\n' : '') + resp.content;
+    }
+
     // No tool calls = final answer
     if (!resp.tool_calls || resp.tool_calls.length === 0) {
-      finalText = resp.content;
       messages.push({ role: 'assistant', content: finalText });
       break;
     }
@@ -145,8 +153,6 @@ export async function executeToolLoop(options: ToolLoopOptions): Promise<ToolLoo
         tools: resp.tool_calls.map((tc) => tc.function.name),
       });
     }
-
-    let breakForConfirmation = false;
 
     // Execute each tool call
     for (const call of resp.tool_calls) {
@@ -250,7 +256,6 @@ export async function executeToolLoop(options: ToolLoopOptions): Promise<ToolLoo
       // Handle confirmation needed
       if (result.needs_confirmation) {
         pendingConfirmation = result.needs_confirmation;
-        breakForConfirmation = true;
         messages.push({
           role: 'tool',
           tool_call_id: call.id,
@@ -269,10 +274,8 @@ export async function executeToolLoop(options: ToolLoopOptions): Promise<ToolLoo
       onChunk({ type: 'tool_done' });
     }
 
-    if (breakForConfirmation) {
-      finalText = `Требуется подтверждение: ${pendingConfirmation?.action}. ${pendingConfirmation?.details}`;
-      break;
-    }
+    // Confirmation now flows through the loop — tool results are in messages,
+    // LLM decides how to proceed on the next round
 
     // Last round — check if we got an answer
     if (round === maxRounds - 1 && !finalText) {
@@ -306,6 +309,26 @@ export async function executeToolLoop(options: ToolLoopOptions): Promise<ToolLoo
   // RLM: Add to WARM cache
   warmCacheAddMessage('user', userMessage);
   warmCacheAddMessage('assistant', finalText);
+
+  // Meta Learning: detect corrections and learn preferences
+  try {
+    const isCorrection = detectCorrection(userMessage);
+    recordInteraction(isCorrection);
+    learnFromMessage(userMessage);
+  } catch (e) {
+    console.warn('[ToolLoop] meta-learning failed:', e);
+  }
+
+  // Self Review: evaluate response quality
+  try {
+    const hadError = toolCallHistory.some((t) => !t.result.success);
+    reviewResponse(userMessage, finalText, {
+      toolCallCount: toolCallHistory.length,
+      hadError,
+    });
+  } catch (e) {
+    console.warn('[ToolLoop] self-review failed:', e);
+  }
 
   return {
     finalText,

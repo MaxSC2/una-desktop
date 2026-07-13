@@ -12,6 +12,7 @@
  */
 
 import { getLLMConfig as getLLMConfigFromConfig, setLLMConfig as setLLMConfigStore } from './config';
+import { getOptimalContextTokens } from './resource-manager';
 
 export interface LLMConfig {
   provider: 'local' | 'cloud' | 'auto';
@@ -22,6 +23,7 @@ export interface LLMConfig {
   cloudBaseUrl: string;
   temperature: number;
   maxTokens: number;
+  cloudProvider: 'openai' | 'gemini';
 }
 
 export interface ChatMessage {
@@ -101,6 +103,9 @@ export async function chatWithTools(
     }
   }
 
+  if (cfg.cloudProvider === 'gemini') {
+    return chatGemini(cfg, messages, tools, signal);
+  }
   return chatCloud(cfg, messages, tools, signal);
 }
 
@@ -135,6 +140,9 @@ export async function chatWithToolsStream(
     }
   }
 
+  if (cfg.cloudProvider === 'gemini') {
+    return chatGeminiStream(cfg, messages, tools, onChunk, signal);
+  }
   return chatCloudStream(cfg, messages, tools, onChunk, signal);
 }
 
@@ -151,10 +159,11 @@ export type StreamChunk =
  * /v1/chat/completions не поддерживает options.num_ctx — Gemma 4 крашится.
  */
 async function chatOllama(cfg: LLMConfig, messages: ChatMessage[], tools: any[], signal?: AbortSignal): Promise<LLMResponse> {
+  const optimalCtx = getOptimalContextTokens();
   const body: any = {
     model: cfg.localModel,
     messages: messages.map((m) => ({ role: m.role, content: m.content, tool_calls: m.tool_calls, tool_call_id: m.tool_call_id })),
-    options: { num_ctx: 4096 },
+    options: { num_ctx: optimalCtx },
     temperature: cfg.temperature,
     stream: false,
   };
@@ -205,10 +214,11 @@ async function chatOllamaStream(
   onChunk: (chunk: StreamChunk) => void,
   signal?: AbortSignal
 ): Promise<LLMResponse> {
+  const optimalCtx = getOptimalContextTokens();
   const body: any = {
     model: cfg.localModel,
     messages: messages.map((m) => ({ role: m.role, content: m.content, tool_calls: m.tool_calls, tool_call_id: m.tool_call_id })),
-    options: { num_ctx: 4096 },
+    options: { num_ctx: optimalCtx },
     temperature: cfg.temperature,
     stream: true,
   };
@@ -350,6 +360,7 @@ async function chatCloudStream(
   let fullContent = '';
   let toolCalls: NonNullable<LLMResponse['tool_calls']> | undefined;
   let totalTokens: number | undefined;
+  let reasoningOpen = false;
 
   // SSE формат: "data: {...}\n\n", заканчивается "data: [DONE]\n\n"
   const bodyStream = resp.body as unknown as NodeJS.ReadableStream;
@@ -377,6 +388,7 @@ async function chatCloudStream(
             choices?: Array<{
               delta?: {
                 content?: string;
+                reasoning_content?: string;
                 tool_calls?: Array<{ id: string; type: 'function'; function: { name: string; arguments: string } }>;
               };
               finish_reason?: string;
@@ -387,7 +399,22 @@ async function chatCloudStream(
           const choice = chunk.choices?.[0];
           if (!choice) continue;
 
+          // DeepSeek reasoning_content → оборачиваем в <think> для UI
+          if (choice.delta?.reasoning_content) {
+            const text = choice.delta.reasoning_content;
+            if (!reasoningOpen) {
+              fullContent += '<think>';
+              reasoningOpen = true;
+            }
+            fullContent += text;
+            onChunk({ type: 'text', delta: text });
+          }
+
           if (choice.delta?.content) {
+            if (reasoningOpen) {
+              fullContent += '</think>';
+              reasoningOpen = false;
+            }
             fullContent += choice.delta.content;
             onChunk({ type: 'text', delta: choice.delta.content });
           }
@@ -412,6 +439,10 @@ async function chatCloudStream(
         }
       }
     }
+  }
+
+  if (reasoningOpen) {
+    fullContent += '</think>';
   }
 
   if (toolCalls && toolCalls.length > 0) {
@@ -464,15 +495,19 @@ async function chatCloud(cfg: LLMConfig, messages: ChatMessage[], tools: any[], 
 
   const data = (await resp.json()) as {
     choices: Array<{
-      message: { content: string; tool_calls?: any[] };
+      message: { content?: string; reasoning_content?: string; tool_calls?: any[] };
       finish_reason: string;
     }>;
     usage?: { total_tokens: number };
   };
 
   const choice = data.choices[0];
+  let content = choice.message.content ?? '';
+  if (choice.message.reasoning_content) {
+    content = `<think>${choice.message.reasoning_content}</think>` + content;
+  }
   return {
-    content: choice.message.content ?? '',
+    content,
     tokens_used: data.usage?.total_tokens,
     provider: 'cloud',
   };
@@ -481,6 +516,318 @@ async function chatCloud(cfg: LLMConfig, messages: ChatMessage[], tools: any[], 
 /**
  * Cached Z.ai SDK instance (avoid dynamic import on every call).
  */
+
+/**
+ * Convert internal messages format to Gemini API contents array + system_instruction.
+ */
+function convertToGeminiMessages(
+  messages: ChatMessage[]
+): { contents: any[]; systemInstruction: string } {
+  let systemInstruction = '';
+
+  // Extract all system prompts
+  const nonSystem = messages.filter((m) => {
+    if (m.role === 'system') {
+      systemInstruction += (systemInstruction ? '\n' : '') + m.content;
+      return false;
+    }
+    return true;
+  });
+
+  const contents: any[] = [];
+  for (const msg of nonSystem) {
+    if (msg.role === 'user') {
+      contents.push({ role: 'user', parts: [{ text: msg.content }] });
+    } else if (msg.role === 'assistant') {
+      if (msg.tool_calls && msg.tool_calls.length > 0) {
+        const parts: any[] = msg.content ? [{ text: msg.content }] : [];
+        for (const tc of msg.tool_calls) {
+          let args: Record<string, any> = {};
+          try { args = JSON.parse(tc.function.arguments || '{}'); } catch {}
+          parts.push({
+            functionCall: { name: tc.function.name, args },
+          });
+        }
+        contents.push({ role: 'model', parts });
+      } else {
+        contents.push({ role: 'model', parts: [{ text: msg.content }] });
+      }
+    } else if (msg.role === 'tool') {
+      let parsedContent: any = {};
+      try { parsedContent = JSON.parse(msg.content || '{}'); } catch {}
+      // tool_call_id contains the function name in our format
+      // But we need the function name - find it from previous assistant message
+      // If not found, try to extract from content
+      let funcName = 'unknown';
+      if (msg.tool_call_id) {
+        // Look back for which function this matches
+        for (let i = nonSystem.indexOf(msg) - 1; i >= 0; i--) {
+          const prev = nonSystem[i];
+          if (prev.role === 'assistant' && prev.tool_calls) {
+            const match = prev.tool_calls.find(tc => tc.id === msg.tool_call_id);
+            if (match) { funcName = match.function.name; break; }
+          }
+        }
+      }
+      // Extract result data
+      const responseContent = parsedContent.success !== undefined
+        ? { success: parsedContent.success, data: parsedContent.data, error: parsedContent.error }
+        : parsedContent;
+
+      contents.push({
+        role: 'user',
+        parts: [{
+          functionResponse: {
+            name: funcName,
+            response: {
+              name: funcName,
+              content: responseContent,
+            },
+          },
+        }],
+      });
+    }
+  }
+
+  return { contents, systemInstruction };
+}
+
+/**
+ * Convert internal tool definitions to Gemini functionDeclarations format.
+ */
+function convertToolsToGemini(tools: Array<{ type: string; function: any }>): any[] {
+  if (!tools || tools.length === 0) return [];
+  return [{
+    functionDeclarations: tools.map((t) => ({
+      name: t.function.name,
+      description: t.function.description || '',
+      parameters: t.function.parameters || { type: 'object', properties: {} },
+    })),
+  }];
+}
+
+/**
+ * Parse Gemini response into our internal LLMResponse format.
+ */
+function parseGeminiResponse(data: any): LLMResponse {
+  const candidate = data.candidates?.[0];
+  if (!candidate) return { content: '', provider: 'cloud' };
+
+  const parts = candidate.content?.parts ?? [];
+  let textContent = '';
+  const toolCalls: LLMResponse['tool_calls'] = [];
+
+  for (const part of parts) {
+    if (part.text) {
+      textContent += part.text;
+    }
+    if (part.functionCall) {
+      toolCalls.push({
+        id: `call_gemini_${Date.now()}_${toolCalls.length}`,
+        type: 'function',
+        function: {
+          name: part.functionCall.name,
+          arguments: JSON.stringify(part.functionCall.args ?? {}),
+        },
+      });
+    }
+  }
+
+  return {
+    content: textContent,
+    tool_calls: toolCalls.length > 0 ? toolCalls : undefined,
+    tokens_used: data.usageMetadata?.totalTokenCount,
+    provider: 'cloud',
+  };
+}
+
+/**
+ * Non-streaming chat with Gemini API.
+ */
+async function chatGemini(
+  cfg: LLMConfig,
+  messages: ChatMessage[],
+  tools: any[],
+  signal?: AbortSignal
+): Promise<LLMResponse> {
+  if (!cfg.cloudApiKey) {
+    throw new Error('API key not configured for Gemini. Set cloudApiKey in settings.');
+  }
+
+  const { contents, systemInstruction } = convertToGeminiMessages(messages);
+
+  const body: any = {
+    contents,
+    generationConfig: {
+      temperature: cfg.temperature,
+      maxOutputTokens: cfg.maxTokens,
+    },
+  };
+
+  if (systemInstruction) {
+    body.systemInstruction = { parts: [{ text: systemInstruction }] };
+  }
+
+  if (tools.length > 0) {
+    body.tools = convertToolsToGemini(tools);
+  }
+
+  const resp = await fetch(
+    `${cfg.cloudBaseUrl}/models/${cfg.cloudModel}:generateContent`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-goog-api-key': cfg.cloudApiKey,
+      },
+      body: JSON.stringify(body),
+      signal: signal ?? AbortSignal.timeout(120000),
+    }
+  );
+
+  if (!resp.ok) {
+    const txt = await resp.text();
+    throw new Error(`Gemini ${resp.status}: ${txt}`);
+  }
+
+  const data = await resp.json();
+  return parseGeminiResponse(data);
+}
+
+/**
+ * Streaming chat with Gemini API (uses streamGenerateContent).
+ */
+async function chatGeminiStream(
+  cfg: LLMConfig,
+  messages: ChatMessage[],
+  tools: any[],
+  onChunk: (chunk: StreamChunk) => void,
+  signal?: AbortSignal
+): Promise<LLMResponse> {
+  if (!cfg.cloudApiKey) {
+    throw new Error('API key not configured for Gemini. Set cloudApiKey in settings.');
+  }
+
+  const { contents, systemInstruction } = convertToGeminiMessages(messages);
+
+  const body: any = {
+    contents,
+    generationConfig: {
+      temperature: cfg.temperature,
+      maxOutputTokens: cfg.maxTokens,
+    },
+  };
+
+  if (systemInstruction) {
+    body.systemInstruction = { parts: [{ text: systemInstruction }] };
+  }
+
+  if (tools.length > 0) {
+    body.tools = convertToolsToGemini(tools);
+  }
+
+  // Use streamGenerateContent with SSE
+  const resp = await fetch(
+    `${cfg.cloudBaseUrl}/models/${cfg.cloudModel}:streamGenerateContent?alt=sse`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-goog-api-key': cfg.cloudApiKey,
+      },
+      body: JSON.stringify(body),
+      signal: signal ?? AbortSignal.timeout(120000),
+    }
+  );
+
+  if (!resp.ok) {
+    const txt = await resp.text();
+    throw new Error(`Gemini ${resp.status}: ${txt}`);
+  }
+
+  if (!resp.body) {
+    throw new Error('Gemini stream: no response body');
+  }
+
+  let fullContent = '';
+  let toolCalls: NonNullable<LLMResponse['tool_calls']> | undefined;
+  let totalTokens: number | undefined;
+  let textAccumulated = false;
+
+  // SSE format: "data: {...}\n\n" or just "data: {...}"
+  const bodyStream = resp.body as unknown as NodeJS.ReadableStream;
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  for await (const chunk of bodyStream) {
+    const value = chunk instanceof Uint8Array ? chunk : Buffer.from(chunk as unknown as string);
+    buffer += decoder.decode(value, { stream: true });
+
+    let sepIdx: number;
+    while ((sepIdx = buffer.indexOf('\n\n')) >= 0) {
+      const event = buffer.slice(0, sepIdx);
+      buffer = buffer.slice(sepIdx + 2);
+
+      for (const line of event.split('\n')) {
+        if (!line.startsWith('data:')) continue;
+        const data = line.slice(5).trim();
+        if (!data || data === '[DONE]') continue;
+
+        try {
+          const parsed = JSON.parse(data);
+          const candidate = parsed.candidates?.[0];
+          if (!candidate) continue;
+
+          const parts = candidate.content?.parts ?? [];
+
+          for (const part of parts) {
+            if (part.text) {
+              textAccumulated = true;
+              fullContent += part.text;
+              onChunk({ type: 'text', delta: part.text });
+            }
+            if (part.functionCall) {
+              if (!toolCalls) toolCalls = [];
+              toolCalls.push({
+                id: `call_gemini_${Date.now()}_${toolCalls.length}`,
+                type: 'function',
+                function: {
+                  name: part.functionCall.name,
+                  arguments: JSON.stringify(part.functionCall.args ?? {}),
+                },
+              });
+            }
+          }
+
+          if (parsed.usageMetadata?.totalTokenCount) {
+            totalTokens = parsed.usageMetadata.totalTokenCount;
+          }
+        } catch (e) {
+          console.debug('[Gemini Stream] skip parse:', (e as Error).message);
+        }
+      }
+    }
+  }
+
+  if (toolCalls && toolCalls.length > 0) {
+    onChunk({ type: 'tool_calls', tool_calls: toolCalls });
+  }
+  onChunk({ type: 'done', content: fullContent, tool_calls: toolCalls, provider: 'cloud' });
+
+  return {
+    content: fullContent,
+    tool_calls: toolCalls,
+    tokens_used: totalTokens,
+    provider: 'cloud',
+  };
+}
+
+/**
+ * Gemini thought signatures - maps function call IDs to their thought signatures.
+ * Required by Gemini API for multi-turn tool calling.
+ */
+const geminiThoughtSignatures = new Map<string, string>();
+
 let _zaiInstance: any = null;
 let _zaiInitPromise: Promise<any> | null = null;
 
@@ -589,3 +936,7 @@ function extractToolCallsFromContent(content: string): LLMResponse['tool_calls']
   }
   return undefined;
 }
+
+
+
+

@@ -5,7 +5,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Brain, Trash2, RefreshCw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
+import { BrainIcon, DeleteIcon } from '@/components/ui/animated-icons';
 
 export function MemoryPanel() {
   const [facts, setFacts] = useState<Array<{ id: number; category: string; content: string; created_at: string; use_count: number }>>([]);
@@ -50,7 +51,7 @@ export function MemoryPanel() {
     <div className="flex flex-col h-full bg-slate-950/60 border border-una-500/20 rounded-lg overflow-hidden">
       <div className="flex items-center justify-between px-4 py-2.5 border-b border-una-500/20 bg-slate-900/60">
         <div className="flex items-center gap-2">
-          <Brain className="h-4 w-4 text-una-400" />
+          <BrainIcon size={16} className="text-una-400" />
           <h2 className="text-xs font-mono uppercase tracking-wider text-una-300">Память U.N.A.</h2>
         </div>
         <button onClick={load} className="p-1.5 hover:bg-una-500/10 rounded text-slate-300">
@@ -81,7 +82,7 @@ export function MemoryPanel() {
               <div className="flex items-center gap-2">
                 <span className="text-[10px] text-slate-500">×{f.use_count}</span>
                 <button onClick={() => del(f.id)} className="text-slate-500 hover:text-rose-400">
-                  <Trash2 className="h-3 w-3" />
+                  <DeleteIcon size={12} />
                 </button>
               </div>
             </div>

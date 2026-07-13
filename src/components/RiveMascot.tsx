@@ -1,5 +1,6 @@
 import { useRive, useStateMachineInput } from '@rive-app/react-canvas';
 import { Cat } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { MascotEmotion, MascotStatus } from './UnaMascot';
 
 interface RiveMascotProps {
@@ -29,8 +30,31 @@ const EMOTION_TO_RIVE: Record<MascotEmotion, string> = {
 };
 
 export function RiveMascot({ emotion = 'neutral', status = 'idle', size = 48, src }: RiveMascotProps) {
+  const [assetAvailable, setAssetAvailable] = useState(false);
+  const riveSrc = assetAvailable ? src ?? '' : '';
+
+  useEffect(() => {
+    if (!src) {
+      setAssetAvailable(false);
+      return;
+    }
+
+    let cancelled = false;
+    fetch(src, { method: 'HEAD' })
+      .then((resp) => {
+        if (!cancelled) setAssetAvailable(resp.ok);
+      })
+      .catch(() => {
+        if (!cancelled) setAssetAvailable(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [src]);
+
   const { RiveComponent, rive } = useRive({
-    src: src ?? '',
+    src: riveSrc,
     stateMachines: 'State Machine 1',
     autoplay: true,
   });
@@ -41,7 +65,7 @@ export function RiveMascot({ emotion = 'neutral', status = 'idle', size = 48, sr
   if (statusInput) (statusInput as unknown as { value: string }).value = STATUS_TO_RIVE[status];
   if (emotionInput) (emotionInput as unknown as { value: string }).value = EMOTION_TO_RIVE[emotion];
 
-  if (!src) {
+  if (!riveSrc) {
     return (
       <div
         className="flex items-center justify-center rounded-full bg-una-500/5"

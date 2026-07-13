@@ -37,6 +37,25 @@ export interface MemoryConfig {
   maxFacts: number;
 }
 
+export interface ResourceManagerConfig {
+  enabled: boolean;
+  maxContextTokens: number;
+  unloadOnGaming: boolean;
+  throttleOnBattery: boolean;
+  maintenanceDuringIdle: boolean;
+}
+
+export interface ProactiveConfig {
+  enabled: boolean;
+  checkIntervalMinutes: number;
+  minSuggestionIntervalMinutes: number;
+  quietHoursAfterIgnored: number;
+  maxIgnored: number;
+  backgroundMonitorEnabled: boolean;
+  backgroundMonitorIntervalMinutes: number;
+  backgroundSaveEveryChecks: number;
+}
+
 export interface UNAConfig {
   // Main
   currentConversationId: number | null;
@@ -47,6 +66,7 @@ export interface UNAConfig {
   // Onboarding
   onboardingCompleted: boolean;
   userProfile: Record<string, unknown> | null;
+  unaIdentity: Record<string, unknown> | undefined;
 
   // LLM
   llm: LLMConfig;
@@ -59,6 +79,12 @@ export interface UNAConfig {
 
   // Memory
   memory: MemoryConfig;
+
+  // Proactive engines
+  proactive: ProactiveConfig;
+
+  // Resource Manager
+  resource: ResourceManagerConfig;
 
   // Telegram
   telegramBotToken: string;
@@ -76,16 +102,18 @@ export const DEFAULT_CONFIG: UNAConfig = {
 
   onboardingCompleted: false,
   userProfile: null,
+  unaIdentity: undefined,
 
   llm: {
-    provider: 'auto',
+    provider: 'cloud',
     localUrl: 'http://localhost:11434',
     localModel: 'qwen3:4b',
-    cloudApiKey: process.env.ZAI_API_KEY ?? '',
-    cloudModel: 'glm-4.6',
-    cloudBaseUrl: 'https://api.z.ai/api/paas/v4',
+    cloudApiKey: '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',
+    cloudModel: 'Qwen/Qwen2.5-7B-Instruct',
+    cloudBaseUrl: 'https://router.huggingface.co/v1',
+    cloudProvider: 'openai',
     temperature: 0.6,
-    maxTokens: 2048,
+    maxTokens: 16384,
   },
 
   tts: {
@@ -107,6 +135,25 @@ export const DEFAULT_CONFIG: UNAConfig = {
   memory: {
     maxWorkingMessages: 20,
     maxFacts: 1000,
+  },
+
+  proactive: {
+    enabled: true,
+    checkIntervalMinutes: 10,
+    minSuggestionIntervalMinutes: 30,
+    quietHoursAfterIgnored: 2,
+    maxIgnored: 3,
+    backgroundMonitorEnabled: true,
+    backgroundMonitorIntervalMinutes: 5,
+    backgroundSaveEveryChecks: 6,
+  },
+
+  resource: {
+    enabled: true,
+    maxContextTokens: 8192,
+    unloadOnGaming: true,
+    throttleOnBattery: true,
+    maintenanceDuringIdle: true,
   },
 
   telegramBotToken: '',
@@ -184,6 +231,26 @@ export function setMemoryConfig(patch: Partial<MemoryConfig>): void {
   store.set('memory', { ...store.get('memory'), ...patch });
 }
 
+// Proactive engines
+export function getProactiveConfig(): ProactiveConfig {
+  return getConfigStore().get('proactive');
+}
+
+export function setProactiveConfig(patch: Partial<ProactiveConfig>): void {
+  const store = getConfigStore();
+  store.set('proactive', { ...store.get('proactive'), ...patch });
+}
+
+// Resource Manager
+export function getResourceConfig(): ResourceManagerConfig {
+  return getConfigStore().get('resource');
+}
+
+export function setResourceConfig(patch: Partial<ResourceManagerConfig>): void {
+  const store = getConfigStore();
+  store.set('resource', { ...store.get('resource'), ...patch });
+}
+
 // Onboarding
 export function getOnboardingCompleted(): boolean {
   return getConfigStore().get('onboardingCompleted');
@@ -229,3 +296,4 @@ export function setTelegramToken(token: string): void {
 export function setCurrentConversationId(id: number | null): void {
   getConfigStore().set('currentConversationId', id);
 }
+

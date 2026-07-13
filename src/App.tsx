@@ -10,7 +10,7 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Orb } from './components/Orb';
 import { UnaAvatar } from './components/UnaAvatar';
 import { OnboardingWizard } from './components/OnboardingWizard';
@@ -26,24 +26,33 @@ import { WorkPanel } from './components/WorkPanel';
 import { MiniOverlay } from './components/MiniOverlay';
 import { QuickPalette } from './components/QuickPalette';
 import { useUNA } from './hooks/useUNA';
-import { MessageSquare, Folder, Brain, Settings, Minimize, Heart, Briefcase, Bell } from 'lucide-react';
+import { BotMessageSquareIcon, FoldersIcon, BrainIcon, CogIcon, MinimizeIcon, HeartIcon, BriefcaseBusinessIcon, BellIcon } from '@/components/ui/animated-icons';
+import { useI18n } from './i18n';
 
 const QUICK_ACTIONS = [
-  { label: 'Статус git репозиториев', prompt: 'Покажи статус всех моих git репозиториев: незакоммиченные файлы, последние коммиты' },
-  { label: 'Чем я занимался?', prompt: 'Что я делал за ПК сегодня? Покажи недавно изменённые файлы' },
-  { label: 'Что на экране?', prompt: 'Опиши, что сейчас открыто на моём экране' },
-  { label: 'Топ процессов', prompt: 'Покажи топ-10 процессов по потреблению памяти' },
-  { label: 'Информация о системе', prompt: 'Покажи информацию о системе: CPU, память, диск' },
-  { label: 'Найди файлы', prompt: 'Найди все файлы .ts в моей домашней папке' },
+  { labelKey: 'quick.git' as const, prompt: 'Покажи статус всех моих git репозиториев: незакоммиченные файлы, последние коммиты' },
+  { labelKey: 'quick.today' as const, prompt: 'Что я делал за ПК сегодня? Покажи недавно изменённые файлы' },
+  { labelKey: 'quick.screen' as const, prompt: 'Опиши, что сейчас открыто на моём экране' },
+  { labelKey: 'quick.processes' as const, prompt: 'Покажи топ-10 процессов по потреблению памяти' },
+  { labelKey: 'quick.system' as const, prompt: 'Покажи информацию о системе: CPU, память, диск' },
+  { labelKey: 'quick.files' as const, prompt: 'Найди все файлы .ts в моей домашней папке' },
 ];
 
 export default function App() {
+  const [isOverlay] = useState(() => window.location.hash === '#/overlay');
+
+  // Overlay mode — отдельное маленькое окно (480x200, alwaysOnTop)
+  if (isOverlay) {
+    return <MiniOverlay />;
+  }
+
   const activePanel = useStore((s) => s.activePanel);
   const setActivePanel = useStore((s) => s.setActivePanel);
   const status = useStore((s) => s.status);
   const currentEmotion = useStore((s) => s.currentEmotion);
   const [showPalette, setShowPalette] = useState(false);
   const { sendMessage } = useUNA();
+  const { t } = useI18n();
 
   // Глобальный hotkey для Quick Palette (Ctrl+Shift+U)
   useEffect(() => {
@@ -86,7 +95,7 @@ export default function App() {
           </div>
           <div>
             <div className="font-mono text-sm tracking-[0.3em] text-una-300 uppercase">U.N.A.</div>
-            <div className="text-[9px] text-slate-500 font-mono">Universal Neural Assistant</div>
+            <div className="text-[9px] text-slate-500 font-mono">{t('app.subtitle')}</div>
           </div>
         </div>
 
@@ -97,14 +106,14 @@ export default function App() {
                 status === 'idle' ? 'bg-emerald-400' : 'bg-una-400 animate-pulse'
               }`}
             />
-            {status === 'idle' ? 'ONLINE' : status.toUpperCase()}
+            {status === 'idle' ? t('status.online') : status.toUpperCase()}
           </div>
           <button
             onClick={() => window.una.window.hide()}
             className="p-1.5 hover:bg-slate-800 rounded text-slate-400"
-            title="Свернуть в tray"
+            title={t('header.minimize')}
           >
-            <Minimize className="h-4 w-4" />
+            <MinimizeIcon size={16} />
           </button>
         </div>
       </header>
@@ -118,17 +127,17 @@ export default function App() {
           </div>
           <div className="rounded-lg bg-slate-950/60 border border-una-500/20 p-3 flex-1 overflow-y-auto">
             <div className="text-[10px] uppercase tracking-wider text-slate-500 font-mono mb-2">
-              Быстрые команды
+              {t('quick.title')}
             </div>
             <div className="space-y-1.5">
               {QUICK_ACTIONS.map((a) => (
                 <button
-                  key={a.label}
+                  key={a.labelKey}
                   disabled={busy}
                   onClick={() => sendMessage(a.prompt)}
                   className="w-full text-left text-xs font-mono text-slate-300 hover:text-una-200 hover:bg-una-500/10 rounded px-2 py-1.5 border border-transparent hover:border-una-500/30 disabled:opacity-50"
                 >
-                  {a.label}
+                  {t(a.labelKey)}
                 </button>
               ))}
             </div>
@@ -152,53 +161,53 @@ export default function App() {
             <TabButton
               active={activePanel === 'chat'}
               onClick={() => setActivePanel('chat')}
-              icon={<MessageSquare className="h-4 w-4" />}
-              label="Чат"
+              icon={<BotMessageSquareIcon size={16} />}
+              label={t('tabs.chat')}
             />
             <TabButton
               active={activePanel === 'files'}
               onClick={() => setActivePanel('files')}
-              icon={<Folder className="h-4 w-4" />}
-              label="Файлы"
+              icon={<FoldersIcon size={16} />}
+              label={t('tabs.files')}
             />
             <TabButton
               active={activePanel === 'memory'}
               onClick={() => setActivePanel('memory')}
-              icon={<Brain className="h-4 w-4" />}
-              label="Память"
+              icon={<BrainIcon size={16} />}
+              label={t('tabs.memory')}
             />
             <TabButton
               active={activePanel === 'emotions'}
               onClick={() => setActivePanel('emotions')}
-              icon={<Heart className="h-4 w-4" />}
-              label="Эмоции"
+              icon={<HeartIcon size={16} />}
+              label={t('tabs.emotions')}
             />
             <TabButton
               active={activePanel === 'work'}
               onClick={() => setActivePanel('work')}
-              icon={<Briefcase className="h-4 w-4" />}
-              label="Работа"
+              icon={<BriefcaseBusinessIcon size={16} />}
+              label={t('tabs.work')}
             />
             <TabButton
               active={activePanel === 'reminders'}
               onClick={() => setActivePanel('reminders')}
-              icon={<Bell className="h-4 w-4" />}
-              label="Напоминания"
+              icon={<BellIcon size={16} />}
+              label={t('tabs.reminders')}
             />
             <TabButton
               active={activePanel === 'settings'}
               onClick={() => setActivePanel('settings')}
-              icon={<Settings className="h-4 w-4" />}
-              label="Настройки"
+              icon={<CogIcon size={16} />}
+              label={t('tabs.settings')}
             />
           </div>
 
           <div className="mt-4 rounded-lg bg-slate-950/60 border border-una-500/20 p-3 text-[11px] font-mono text-slate-400">
-            <div className="text-una-300 uppercase tracking-wider mb-2">Горячая клавиша</div>
+            <div className="text-una-300 uppercase tracking-wider mb-2">{t('hotkey.title')}</div>
             <div className="text-slate-300">Ctrl+Shift+Space</div>
-            <div className="text-slate-600 mt-1">— открыть overlay</div>
-            <div className="mt-3 text-una-300 uppercase tracking-wider mb-2">Tray</div>
-            <div className="text-slate-600">Иконка U.N.A. в системном трее — клик правой кнопкой для меню.</div>
+            <div className="text-slate-600 mt-1">— {t('hotkey.openOverlay')}</div>
+            <div className="mt-3 text-una-300 uppercase tracking-wider mb-2">{t('tray.title')}</div>
+            <div className="text-slate-600">{t('tray.description')}</div>
           </div>
         </aside>
       </main>
@@ -225,17 +234,26 @@ function TabButton({
   icon: React.ReactNode;
   label: string;
 }) {
+  const iconWithFullHitArea = icon && typeof icon === 'object' && 'type' in icon
+    ? React.cloneElement(icon as React.ReactElement<{ className?: string }>, {
+        className: 'absolute inset-0 w-full h-full [&>svg]:pointer-events-none',
+      })
+    : icon;
+
   return (
     <button
       onClick={onClick}
-      className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-mono transition-colors ${
+      className={`relative flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-mono transition-colors ${
         active
           ? 'bg-una-500/20 text-una-300 border border-una-500/40'
           : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/40 border border-transparent'
       }`}
     >
-      {icon}
-      {label}
+      <span className="relative z-10 flex items-center gap-2.5">
+        <span className="relative">{icon}</span>
+        {label}
+      </span>
+      <span className="absolute inset-0" children={iconWithFullHitArea} />
     </button>
   );
 }

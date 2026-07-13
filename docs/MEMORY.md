@@ -2,102 +2,82 @@
 
 U.N.A. использует **5-уровневую архитектуру памяти**, вдохновлённую когнитивной психологией человека.
 
-## Уровни
+## Архитектура (текущая)
 
-### 1. WORKING MEMORY (рабочая)
+Система памяти построена на двух уровнях:
 
-**Что:** последние сообщения в контексте LLM.
-**Где:** in-memory (RAM).
-**Объём:** последние 20 сообщений (настраивается).
-**Время жизни:** текущий диалог.
+1. **RLM (Recurrent Language Model)** — трёхуровневый менеджер контекста: HOT/WARM/COLD
+2. **Memory Pods** — тематические контейнеры фактов (Profile, Work, Emotions и т.д.)
 
-Передаётся в LLM как часть `messages`. Это аналог краткосрочной памяти человека — то, что вы сейчас обсуждаете.
+---
 
-```typescript
-// В memory/store.ts
-const cfg = store.get('memory');
-const recent = getRecentMessages(convId, cfg.maxWorkingMessages);
+### RLM: HOT / WARM / COLD
+
+#### HOT — что в промпте прямо сейчас
+- **Объём:** ≤8K токенов (настраивается)
+- Собирается заново на каждый запрос через `buildHotContext()`
+- Включает: system prompt, топ-3 факта, последние сообщения, work context, emotion, список активных подов
+- Сборка: `electron/memory/rlm.ts`
+
+#### WARM — in-memory кеш
+- **Объём:** 50 сообщений, 20 фактов
+- Живёт, пока запущен процесс Electron
+- Позволяет быстро отвечать без обращения к SQLite
+- Сброс: `warmCacheClear()`
+
+#### COLD — SQLite
+- **Объём:** без ограничений
+- Таблицы: `conversations`, `messages`, `facts`, `patterns`, `emotions`, `memory_pods`
+- Поиск фактов: FTS5 префильтр + cosine similarity по эмбеддингам
+
+---
+
+### Memory Pods — тематические контейнеры
+
+Память организована в тематические модули (поды). Каждый под содержит факты по одной теме.
+
+**Поды по умолчанию:**
+| Под | Описание |
+|-----|----------|
+| `profile` | Личные данные: имя, возраст, профессия, контакты |
+| `project` | Информация о проектах: репозитории, технологии, задачи |
+| `preference` | Предпочтения: стиль общения, любимые технологии, привычки |
+| `emotion` | Эмоциональный контекст: настроение, триггеры, реакции |
+| `work` | Рабочий контекст: текущие задачи, код, файлы |
+| `general` | Общие факты (под по умолчанию) |
+
+**Как работает:**
+1. `classifyToPod(text)` — Memory Director определяет, к какому поду относится факт (по ключевым словам)
+2. `findRelevantPods(query)` — перед запросом выбирает топ-3 релевантных пода
+3. `recallFacts(query, limit, podId?)` — поиск фактов с опциональной фильтрацией по поду
+4. LLM управляет подами через `[MEM] create_pod` и `[MEM] switch_pod`
+
+---
+
+### Управление контекстом (RLM + Pods)
+
+При каждом запросе:
+
+```
+buildHotContext(userMessage)
+  │
+  ├─ 1. System prompt (≤2000 токенов)
+  ├─ 2. recallFacts(userMessage, 3) — топ-3 факта глобально
+  ├─ 3. findRelevantPods(userMessage) — топ-3 пода по теме
+  ├─ 4. selectMessages(recentMessages, 2048) — последние сообщения
+  ├─ 5. Work context + Emotion
+  └─ 6. [Доступные модули памяти] — список активных подов
 ```
 
-### 2. SESSION MEMORY (сессионная)
+### [MEM] токены — LLM управляет памятью
 
-**Что:** контекст текущей сессии: активные файлы, текущая задача, недавние действия.
-**Где:** in-memory + SQLite.
-**Объём:** ~10-20 элементов.
-**Время жизни:** до перезапуска U.N.A.
-
-Позволяет U.N.A. помнить «мы только что говорили про проект X» даже если конкретные сообщения ушли из working memory.
-
-### 3. EPISODIC MEMORY (эпизодическая)
-
-**Что:** вся история диалогов с временными метками.
-**Где:** SQLite, таблицы `conversations` и `messages`.
-**Объём:** без ограничений ( SQLite — сотни тысяч строк без проблем).
-**Время жизни:** пока не удалите БД.
-
-Каждое сообщение сохраняется:
-```sql
-INSERT INTO messages (conversation_id, role, content, tool_calls, timestamp)
-VALUES (?, ?, ?, ?, ?);
-```
-
-Поиск по истории — через `LIKE`:
-```sql
-SELECT * FROM messages WHERE content LIKE '%проект%' ORDER BY timestamp DESC LIMIT 10;
-```
-
-### 4. SEMANTIC MEMORY (семантическая)
-
-**Что:** факты о пользователе, его проектах, предпочтениях.
-**Где:** SQLite, таблица `facts` + векторные embeddings.
-**Объём:** по умолчанию 500 фактов (LRU-вытеснение).
-**Время жизни:** пока не удалите.
-
-U.N.A. **автоматически** сохраняет важные факты через инструмент `memory_save`:
-- «пользователь программист на Python»
-- «проект X находится в /home/user/projects/X»
-- «пользователь предпочитает тёмную тему»
-
-Для поиска используется **векторная семантика**:
-- Каждый факт проходит через `all-MiniLM-L6-v2` (384-мерный embedding)
-- При запросе «помнишь, какой у меня проект?» — U.N.A. вызывает `memory_recall`
-- Embedding запроса сравнивается с embedding'ами фактов (cosine similarity)
-- Топ-5 релевантных фактов добавляются в контекст LLM
-
-```typescript
-// В memory/store.ts
-async function recallFacts(query: string, limit = 5): Promise<Fact[]> {
-  const queryEmbedding = await embed(query);
-  const all = db.prepare('SELECT * FROM facts').all();
-  // Сортируем по cosine similarity
-  const scored = all
-    .map((f) => ({ ...f, score: cosine(queryEmbedding, f.embedding) }))
-    .sort((a, b) => b.score - a.score)
-    .slice(0, limit);
-  // Обновляем last_used для найденных
-  return scored;
-}
-```
-
-**Почему `all-MiniLM-L6-v2`?**
-- Размер: ~25 МБ
-- Скорость: ~10 мс на embedding (CPU)
-- Качество: достаточно для русского и английского
-- Работает локально, без интернета
-- Через `@xenova/transformers` — чистый JS, без Python
-
-### 5. PROCEDURAL MEMORY (процедурная)
-
-**Что:** усвоенные шаблоны «если пользователь спросил X → делай Y».
-**Где:** SQLite, таблица `patterns`.
-**Объём:** без ограничений.
-**Время жизни:** пока не удалите.
-
-Пример:
-- Триггер: «открой проект»
-- Действие: «вызови list_files для ~/projects и спроси какой проект»
-
-Пока используется ограниченно — для ускорения типичных команд. В будущем можно развить в полноценную систему обучения.
+Модель может в конце ответа добавить блок `[MEM]`:
+- `[MEM] save:категория:факт` — запомнить
+- `[MEM] recall:запрос` — вспомнить
+- `[MEM] forget:категория:что` — забыть
+- `[MEM] create_pod:имя:описание` — создать новый модуль
+- `[MEM] switch_pod:имя:запрос` — переключить фокус
+- `[MEM] summarize:количество` — сжать старые сообщения
 
 ## Схема БД
 
@@ -125,7 +105,19 @@ CREATE TABLE facts (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   category TEXT NOT NULL,     -- user | project | preference | task
   content TEXT NOT NULL,
-  embedding BLOB,             -- Float32Array, 384 элемента = 1536 байт
+  embedding BLOB,             -- Float32Array, 256 элементов = 1024 байта
+  created_at TEXT NOT NULL,
+  last_used TEXT,
+  use_count INTEGER DEFAULT 0,
+  pod_id INTEGER REFERENCES memory_pods(id)  -- NULL → 'general' под
+);
+CREATE INDEX idx_facts_pod ON facts(pod_id);
+
+CREATE TABLE memory_pods (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL UNIQUE,  -- 'profile', 'project', 'preference', 'emotion', 'work', 'general'
+  description TEXT NOT NULL DEFAULT '',
+  embedding BLOB,
   created_at TEXT NOT NULL,
   last_used TEXT,
   use_count INTEGER DEFAULT 0
@@ -139,6 +131,16 @@ CREATE TABLE patterns (
   fail_count INTEGER DEFAULT 0,
   last_used TEXT
 );
+
+CREATE TABLE emotions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  timestamp TEXT NOT NULL,
+  emotion TEXT NOT NULL,
+  trigger TEXT,
+  intensity REAL DEFAULT 0.5,
+  message_preview TEXT,
+  conversation_id INTEGER
+);
 ```
 
 ## Где хранится БД
@@ -149,50 +151,57 @@ CREATE TABLE patterns (
 
 Путь определяется через `app.getPath('userData')` в Electron.
 
+## Embeddings
+
+Используется **Ollama `/api/embed`** (модель из конфига `localModel`).
+
+**Размерность:** 256 dimensions.
+
+**Fallback:** hashing trick (char n-grams + word hashing, L2-нормализация) — работает без LLM, без интернета.
+
+```typescript
+// electron/ai/embed.ts
+async function embed(text: string): Promise<Float32Array> {
+  // Ollama /api/embed → 256-dim вектор
+  // При отказе → embedHash(text) — детерминированный хеш
+}
+```
+
 ## Контекст для LLM
 
-Когда вы пишете сообщение, U.N.A. строит контекст так:
+Контекст строится через **RLM** (`electron/memory/rlm.ts`):
+
+1. **System prompt** — `buildDynamicPrompt()` (адаптации под эмоцию, время, режим работы)
+2. **Факты** — `recallFacts(query, 3)` (топ-3 релевантных факта)
+3. **Активные поды** — `[Доступные модули памяти]` (топ-3 пода по теме запроса)
+4. **История** — последние сообщения (в пределах токенового бюджета)
+5. **Work context** — активное окно, файлы, процессы
+6. **Emotion** — текущее настроение пользователя
 
 ```
 [SYSTEM PROMPT]
-Ты — U.N.A., персональный ИИ-ассистент...
+Ты — U.N.A., персональный ИИ-компаньон...
 
-# Вспомненные факты о пользователе
-- [user] Пользователь программист на Python
-- [project] Проект "myapp" находится в /home/user/myapp
-- [preference] Пользователь предпочитает тёмную тему
+# Вспомненные факты
+- [user] Пользователь программист
 
-[USER] (5 минут назад) Покажи, что в проекте myapp
-[ASSISTANT] (5 минут назад) В /home/user/myapp: src/, package.json...
+# Доступные модули памяти
+- project: Информация о проектах (12 фактов)
+- work: Рабочий контекст (5 фактов)
 
-[USER] (сейчас) Создай там файл README.md
+[USER] ...сообщения истории...
+[USER] (сейчас) Создай README.md
 ```
-
-LLM видит и вашу текущую задачу, и важные факты из прошлого — отвечает контекстно.
-
-## Управление памятью
-
-В UI есть панель **«Память»**:
-- Список всех фактов с категориями
-- Счётчик использований (use_count)
-- Кнопка удаления факта
-- Автообновление при сохранении новых фактов
-
-Можно удалять факты, которые U.N.A. запомнила неправильно.
 
 ## Производительность памяти
 
 - SQLite с WAL mode — параллельные чтения без блокировок
-- Векторный поиск по 500 фактам: ~5-10 мс (полный скан, но быстрый)
-- При росте до 5000+ фактов — нужен ANN индекс (FAISS, hnswlib)
-- Embeddings кешируются в BLOB — не пересчитываются
+- Векторный поиск: FTS5 префильтр + cosine similarity (~5-15 мс на 500 фактов)
+- Embeddings (256-dim Float32) — 1024 байта на факт, кешируются в BLOB
+- При росте до 5000+ фактов — потребуется ANN индекс
 
 ## Приватность
 
 **Всё хранится локально.** Никакие факты, диалоги, embeddings не отправляются в облако без вашего ведома.
 
-Единственное, что уходит в облако (если включён облачный режим):
-- Тексты ваших сообщений (для LLM)
-- Embeddings запросов (для cloud embeddings, если используются)
-
-При локальном режиме (Ollama + whisper + piper) — полный офлайн.
+При локальном режиме (Ollama) — полный офлайн.

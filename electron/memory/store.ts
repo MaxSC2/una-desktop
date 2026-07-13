@@ -22,6 +22,8 @@ import * as path from 'path';
 import { app } from 'electron';
 import { getMemoryConfig } from '../ai/config';
 import { embed } from '../ai/embed';
+import { classifyToPod } from './pods';
+import { autoLinkFacts } from './knowledge-graph';
 
 let db: Database.Database | null = null;
 
@@ -31,9 +33,20 @@ export function getDb(): Database.Database | null {
 
 export interface Fact {
   id?: number;
-  category: 'user' | 'project' | 'preference' | 'task';
+  category: 'user' | 'project' | 'preference' | 'task' | 'self_review' | 'goal';
   content: string;
   embedding?: Float32Array;
+  created_at?: string;
+  last_used?: string | null;
+  use_count?: number;
+  pod_id?: number;
+}
+
+export interface Pod {
+  id?: number;
+  name: string;
+  description: string;
+  embedding?: Buffer;
   created_at?: string;
   last_used?: string | null;
   use_count?: number;
@@ -59,6 +72,7 @@ export function initMemory(): void {
   const dbPath = path.join(app.getPath('userData'), 'una-memory.db');
   db = new Database(dbPath);
   db.pragma('journal_mode = WAL');
+  db.pragma('foreign_keys = OFF');
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS conversations (
@@ -115,6 +129,35 @@ export function initMemory(): void {
     CREATE INDEX IF NOT EXISTS idx_facts_category ON facts(category);
     CREATE INDEX IF NOT EXISTS idx_facts_content ON facts(content);
 
+    -- Knowledge Graph: relations between facts
+    CREATE TABLE IF NOT EXISTS fact_relations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      from_id INTEGER NOT NULL REFERENCES facts(id),
+      to_id INTEGER NOT NULL REFERENCES facts(id),
+      relation TEXT NOT NULL,
+      weight REAL DEFAULT 1.0,
+      created_at TEXT NOT NULL,
+      UNIQUE(from_id, to_id, relation)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_relations_from ON fact_relations(from_id);
+    CREATE INDEX IF NOT EXISTS idx_relations_to ON fact_relations(to_id);
+    CREATE INDEX IF NOT EXISTS idx_relations_type ON fact_relations(relation);
+
+    -- Memory Pods
+    CREATE TABLE IF NOT EXISTS memory_pods (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL UNIQUE,
+      description TEXT NOT NULL DEFAULT '',
+      embedding BLOB,
+      created_at TEXT NOT NULL,
+      last_used TEXT,
+      use_count INTEGER DEFAULT 0
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_pods_name ON memory_pods(name);
+    CREATE INDEX IF NOT EXISTS idx_pods_last_used ON memory_pods(last_used);
+
     -- FTS5 index for full-text search on facts content
     CREATE VIRTUAL TABLE IF NOT EXISTS facts_fts USING fts5(
       content,
@@ -125,19 +168,115 @@ export function initMemory(): void {
     CREATE TRIGGER IF NOT EXISTS facts_ai AFTER INSERT ON facts BEGIN
       INSERT INTO facts_fts(rowid, content) VALUES (new.id, new.content);
     END;
+
     CREATE TRIGGER IF NOT EXISTS facts_ad AFTER DELETE ON facts BEGIN
       INSERT INTO facts_fts(facts_fts, rowid, content) VALUES('delete', old.id, old.content);
     END;
+
     CREATE TRIGGER IF NOT EXISTS facts_au AFTER UPDATE ON facts BEGIN
       INSERT INTO facts_fts(facts_fts, rowid, content) VALUES('delete', old.id, old.content);
       INSERT INTO facts_fts(rowid, content) VALUES (new.id, new.content);
     END;
+
+    -- Executive Manager goals
+    CREATE TABLE IF NOT EXISTS goals (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      description TEXT NOT NULL,
+      subgoals TEXT NOT NULL DEFAULT '[]',
+      status TEXT NOT NULL DEFAULT 'active',
+      progress REAL NOT NULL DEFAULT 0,
+      context_snapshot TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_goals_status ON goals(status);
   `);
 
   // One-time rebuild of FTS from existing rows (safe to run multiple times)
   try {
     db.exec(`INSERT INTO facts_fts(facts_fts) VALUES('rebuild')`);
   } catch { /* already populated */ }
+
+  // Pod schema migration: add pod_id column to facts
+  try {
+    db.exec(`ALTER TABLE facts ADD COLUMN pod_id INTEGER REFERENCES memory_pods(id)`);
+  } catch { /* already exists */ }
+
+  try {
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_facts_pod ON facts(pod_id)`);
+  } catch { /* already exists */ }
+
+  // Seed default pods
+  const defaultPods: Array<{ name: string; description: string }> = [
+    { name: 'profile', description: 'Личные данные пользователя: имя, возраст, профессия, контакты, биография' },
+    { name: 'project', description: 'Информация о проектах: репозитории, технологии, задачи, сроки' },
+    { name: 'preference', description: 'Предпочтения пользователя: стиль общения, любимые технологии, привычки' },
+    { name: 'emotion', description: 'Эмоциональный контекст: настроение, триггеры, эмоциональные реакции' },
+    { name: 'work', description: 'Рабочий контекст: текущие задачи, код, файлы, команды, дедлайны' },
+    { name: 'general', description: 'Общие факты, не подходящие под другие категории' },
+  ];
+  const now = new Date().toISOString();
+  const insertPod = db.prepare(
+    `INSERT OR IGNORE INTO memory_pods (name, description, created_at) VALUES (?, ?, ?)`
+  );
+  for (const pod of defaultPods) {
+    insertPod.run(pod.name, pod.description, now);
+  }
+
+  // Migrate existing facts with NULL pod_id to 'general' pod
+  const generalPod = db.prepare(`SELECT id FROM memory_pods WHERE name = 'general'`).get() as { id: number } | undefined;
+  if (generalPod) {
+    db.prepare(`UPDATE facts SET pod_id = ? WHERE pod_id IS NULL`).run(generalPod.id);
+  }
+}
+
+// ============================================================
+// MEMORY PODS — модульные контейнеры памяти
+// ============================================================
+
+export function createPod(name: string, description: string): number {
+  if (!db) throw new Error('Memory not initialized');
+  const result = db.prepare(
+    `INSERT INTO memory_pods (name, description, created_at) VALUES (?, ?, ?)`
+  ).run(name, description, new Date().toISOString());
+  return result.lastInsertRowid as number;
+}
+
+export function listPods(): Array<Pod & { factCount: number }> {
+  if (!db) return [];
+  return db.prepare(`
+    SELECT p.*, COALESCE(f.cnt, 0) as factCount
+    FROM memory_pods p
+    LEFT JOIN (SELECT pod_id, COUNT(*) as cnt FROM facts GROUP BY pod_id) f ON f.pod_id = p.id
+    ORDER BY p.use_count DESC, p.last_used DESC
+  `).all() as Array<Pod & { factCount: number }>;
+}
+
+export function getPod(id: number): Pod | null {
+  if (!db) return null;
+  return (db.prepare(`SELECT * FROM memory_pods WHERE id = ?`).get(id) as Pod | undefined) ?? null;
+}
+
+export function getPodByName(name: string): Pod | null {
+  if (!db) return null;
+  return (db.prepare(`SELECT * FROM memory_pods WHERE name = ?`).get(name) as Pod | undefined) ?? null;
+}
+
+export function deletePod(id: number): void {
+  if (!db) return;
+  const generalPod = db.prepare(`SELECT id FROM memory_pods WHERE name = 'general'`).get() as { id: number } | undefined;
+  if (generalPod) {
+    db.prepare(`UPDATE facts SET pod_id = ? WHERE pod_id = ?`).run(generalPod.id, id);
+  }
+  db.prepare(`DELETE FROM memory_pods WHERE id = ?`).run(id);
+}
+
+export function incrementPodUse(podId: number): void {
+  if (!db) return;
+  db.prepare(`UPDATE memory_pods SET use_count = use_count + 1, last_used = ? WHERE id = ?`).run(
+    new Date().toISOString(),
+    podId,
+  );
 }
 
 // ============================================================
@@ -229,6 +368,12 @@ export function startConversation(): number {
   return result.lastInsertRowid as number;
 }
 
+export function getConversationExists(id: number): boolean {
+  if (!db) return false;
+  const row = db.prepare('SELECT 1 FROM conversations WHERE id = ?').get(id);
+  return !!row;
+}
+
 export function endConversation(id: number, summary: string): void {
   if (!db) return;
   db.prepare('UPDATE conversations SET ended_at = ?, summary = ? WHERE id = ?').run(
@@ -281,26 +426,36 @@ export function searchEpisodic(query: string, limit = 10): Message[] {
 // SEMANTIC MEMORY — факты с embeddings
 // ============================================================
 
-export async function saveFact(category: Fact['category'], content: string): Promise<void> {
+export async function saveFact(category: Fact['category'], content: string, podId?: number): Promise<void> {
   if (!db) throw new Error('Memory not initialized');
   const embedding = await embed(content);
   const buf = Buffer.from(embedding.buffer, embedding.byteOffset, embedding.byteLength);
 
-  db.prepare(
-    `INSERT INTO facts (category, content, embedding, created_at)
-     VALUES (?, ?, ?, ?)`
-  ).run(category, content, buf, new Date().toISOString());
+  const resolvedPodId = podId ?? getPodIdByCategory(content);
+  const d = db;
 
-  // Чистим старые, если превышаем лимит
-  const cfg = getMemoryConfig();
-  const count = (db.prepare('SELECT COUNT(*) as c FROM facts').get() as { c: number }).c;
-  if (count > cfg.maxFacts) {
-    db.prepare(
-      `DELETE FROM facts WHERE id IN (
-        SELECT id FROM facts ORDER BY use_count ASC, last_used ASC LIMIT ?
-      )`
-    ).run(count - cfg.maxFacts);
-  }
+  const txn = d.transaction(() => {
+    const insertResult = d.prepare(
+      `INSERT INTO facts (category, content, embedding, created_at, pod_id)
+       VALUES (?, ?, ?, ?, ?)`
+    ).run(category, content, buf, new Date().toISOString(), resolvedPodId);
+
+    const newId = insertResult.lastInsertRowid as number;
+    // Auto-link to related facts in Knowledge Graph
+    autoLinkFacts(newId);
+
+    const cfg = getMemoryConfig();
+    const count = (d.prepare('SELECT COUNT(*) as c FROM facts').get() as { c: number }).c;
+    if (count > cfg.maxFacts) {
+      d.prepare(
+        `DELETE FROM facts WHERE id IN (
+          SELECT id FROM facts ORDER BY use_count ASC, last_used ASC LIMIT ?
+        )`
+      ).run(count - cfg.maxFacts);
+    }
+  });
+
+  txn();
 }
 
 /**
@@ -316,7 +471,7 @@ function ftsKeywords(query: string): string {
 /**
  * Вспомнить факты по теме (векторный поиск с FTS5 предфильтрацией).
  */
-export async function recallFacts(query: string, limit = 5): Promise<Fact[]> {
+export async function recallFacts(query: string, limit = 5, podId?: number): Promise<Fact[]> {
   if (!db) return [];
   const queryEmbedding = await embed(query);
 
@@ -347,12 +502,25 @@ export async function recallFacts(query: string, limit = 5): Promise<Fact[]> {
   if (candidateIds.length > 0) {
     // Load only candidates from FTS5
     const placeholders = candidateIds.map(() => '?').join(',');
-    rows = db.prepare(
-      `SELECT * FROM facts WHERE id IN (${placeholders})`
-    ).all(...candidateIds) as typeof rows;
+    const params: unknown[] = [...candidateIds];
+    let sql = `SELECT * FROM facts WHERE id IN (${placeholders})`;
+    if (podId !== undefined) {
+      sql += ` AND pod_id = ?`;
+      params.push(podId);
+    }
+    rows = db.prepare(sql).all(...params) as typeof rows;
   } else {
     // Fall back to full scan for short/abstract queries
-    rows = db.prepare('SELECT * FROM facts LIMIT 500').all() as typeof rows;
+    let sql: string;
+    let params: unknown[];
+    if (podId !== undefined) {
+      sql = `SELECT * FROM facts WHERE pod_id = ? LIMIT 500`;
+      params = [podId];
+    } else {
+      sql = `SELECT * FROM facts LIMIT 500`;
+      params = [];
+    }
+    rows = db.prepare(sql).all(...params) as typeof rows;
   }
 
   if (rows.length === 0) return [];
@@ -406,6 +574,7 @@ export function listFacts(): Fact[] {
 
 export function deleteFact(id: number): void {
   if (!db) return;
+  db.prepare('DELETE FROM facts_fts WHERE rowid = ?').run(id);
   db.prepare('DELETE FROM facts WHERE id = ?').run(id);
 }
 
@@ -415,10 +584,11 @@ export function deleteFact(id: number): void {
 
 export function savePattern(trigger: string, action: string): void {
   if (!db) return;
-  db.prepare(
-    `INSERT INTO patterns (trigger, action, last_used) VALUES (?, ?, ?)
-     ON CONFLICT(trigger) DO UPDATE SET action = excluded.action, last_used = excluded.last_used`
-  ).run(trigger, action, new Date().toISOString());
+  const now = new Date().toISOString();
+  const result = db.prepare('UPDATE patterns SET action = ?, last_used = ? WHERE trigger = ?').run(action, now, trigger);
+  if (result.changes === 0) {
+    db.prepare('INSERT INTO patterns (trigger, action, last_used) VALUES (?, ?, ?)').run(trigger, action, now);
+  }
 }
 
 export function findPattern(trigger: string): { action: string } | null {
@@ -569,6 +739,17 @@ export function getFactsByCategory(category: Fact['category']): Fact[] {
 /**
  * Increment use_count when a fact is recalled (reinforces importance).
  */
+/**
+ * Auto-classify content to a pod and return its ID.
+ */
+function getPodIdByCategory(content: string): number | null {
+  if (!db) return null;
+  const d = db;
+  const podName = classifyToPod(content);
+  const pod = d.prepare(`SELECT id FROM memory_pods WHERE name = ?`).get(podName) as { id: number } | undefined;
+  return pod?.id ?? null;
+}
+
 export function incrementFactUse(factId: number): void {
   if (!db) return;
   db.prepare('UPDATE facts SET use_count = use_count + 1, last_used = ? WHERE id = ?').run(

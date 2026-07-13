@@ -172,6 +172,8 @@ function scanImports(dir) {
           }
           // Skip Node.js built-ins
           const builtins = ['fs', 'path', 'os', 'child_process', 'crypto', 'util', 'http', 'https', 'net', 'url', 'stream', 'events', 'buffer', 'process', 'querystring', 'zlib', 'readline', 'cluster', 'worker_threads', 'perf_hooks', 'timers', 'assert'];
+          // Skip TS path aliases starting with @/
+          if (pkgName.startsWith('@/')) continue;
           if (!builtins.includes(pkgName)) {
             importedPackages.add(pkgName);
           }

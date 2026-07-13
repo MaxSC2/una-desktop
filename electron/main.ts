@@ -13,7 +13,8 @@
 import { app, BrowserWindow, Tray, Menu, globalShortcut, ipcMain, desktopCapturer, nativeImage, shell, Notification } from 'electron';
 import * as path from 'path';
 import { autoUpdater } from 'electron-updater';
-import { initMemory, closeMemory, startConversation, saveMessage, getRecentMessages, saveFact, recallFacts, saveEmotion, getLastEmotion } from './memory/store';
+import { initMemory, closeMemory, startConversation, saveMessage, getRecentMessages, saveFact, recallFacts, saveEmotion, getLastEmotion, listFacts } from './memory/store';
+import { addRelation, getRelatedFacts, getRelationStats, removeRelation, autoLinkFacts } from './memory/knowledge-graph';
 import { exportBackup, importBackup } from './data/backup';
 import { initRemindersTable, createReminder, listReminders, deleteReminder, startReminderChecker, stopReminderChecker } from './reminders';
 import { startTelegramBot, stopTelegramBot, sendTelegramNotification, getTelegramStatus } from './telegram';
@@ -28,7 +29,19 @@ import { buildDynamicPrompt, detectEmotion, detectTimeOfDay, detectWorkMode } fr
 import { validate, ChatSendSchema, ChatConfirmSchema, ASRTranscribeSchema, TTSSynthesizeSchema, FilesListSchema, ShellOpenSchema, MemoryDeleteFactSchema } from './validation/schemas';
 import { startProactiveEngine, stopProactiveEngine } from './ai/proactive';
 import { startBackgroundMonitor, stopBackgroundMonitor } from './ai/background-monitor';
-import { getConfigStore, setLLMConfig as setLLMConfigConfig, setTTSConfig as setTTSConfigConfig, setASRConfig as setASRConfigConfig, setOnboardingCompleted, setUserProfile, setCurrentConversationId, addConfirmedToken, getCurrentConversationId, getConfig } from './ai/config';
+import { startLifeLoop, stopLifeLoop, getLifeLoopStats } from './ai/life-loop';
+import { getResourceState } from './ai/resource-manager';
+import { recordInteraction, getAttentionState, setDoNotDisturb } from './ai/attention-manager';
+import { getIdentity, saveIdentity, resetIdentity, buildIdentityPrompt } from './ai/identity';
+import { getConfigStore, setLLMConfig as setLLMConfigConfig, setTTSConfig as setTTSConfigConfig, setASRConfig as setASRConfigConfig, setProactiveConfig, setOnboardingCompleted, setUserProfile, setCurrentConversationId, addConfirmedToken, getCurrentConversationId, getConfig } from './ai/config';
+import { createGoal, getActiveGoals, getAllGoals, updateSubgoalStatus, interruptGoal, resumeGoal, completeGoal, cancelGoal, getGoalById } from './ai/executive';
+import { getRecentReviews, getReviewSummary, runDeepReview, clearReviews } from './ai/self-review';
+import { buildWorldState, incrementMessageCount } from './ai/world-model';
+import { getInsights, resetLearning } from './ai/meta-learning';
+import { getCurrentMode, setMode, listModes, getModeConfig } from './ai/modes';
+import { getCurrentState, getStateLabel, getStateConfig, listStates } from './ai/states';
+import { getRecentThoughts, formatThoughtsForPrompt, clearThoughts } from './ai/monologue';
+import { runMaintenance } from './ai/compression';
 
 let mainWindow: BrowserWindow | null = null;
 let overlayWindow: BrowserWindow | null = null;
@@ -223,6 +236,9 @@ function registerIpcHandlers(): void {
     }
     const convId = configStore.get('currentConversationId')!;
 
+    // Attention Manager — отмечаем активность
+    recordInteraction();
+
     // Анализируем эмоцию и сохраняем в эмоциональную память
     const emotion = detectEmotion(text);
     const timeOfDay = detectTimeOfDay();
@@ -325,6 +341,9 @@ function registerIpcHandlers(): void {
     // Создаём AbortController для этой сессии
     const controller = new AbortController();
     activeAbortController = controller;
+
+    // Attention Manager — отмечаем активность
+    recordInteraction();
 
     // Эмоция + контекст (как в chat:send)
     const emotion = detectEmotion(text);
@@ -489,6 +508,7 @@ function registerIpcHandlers(): void {
       llm: getLLMConfig(),
       asr: getASRConfig(),
       tts: getTTSConfig(),
+      proactive: configStore.get('proactive'),
       hotkey: configStore.get('hotkey'),
       startMinimized: configStore.get('startMinimized'),
     };
@@ -498,6 +518,13 @@ function registerIpcHandlers(): void {
     if (cfg.llm) setLLMConfig(cfg.llm);
     if (cfg.asr) setASRConfig(cfg.asr);
     if (cfg.tts) setTTSConfig(cfg.tts);
+    if (cfg.proactive) {
+      setProactiveConfig(cfg.proactive);
+      stopBackgroundMonitor();
+      stopProactiveEngine();
+      startBackgroundMonitor();
+      startProactiveEngine(() => mainWindow);
+    }
     if (cfg.hotkey) configStore.set('hotkey', cfg.hotkey);
     if (cfg.startMinimized !== undefined) configStore.set('startMinimized', cfg.startMinimized);
     return { ok: true };
@@ -607,6 +634,178 @@ function registerIpcHandlers(): void {
     return getTelegramStatus();
   });
 
+  // Life Loop + Resource Manager stats
+  ipcMain.handle('life-loop:stats', () => {
+    return getLifeLoopStats();
+  });
+
+  ipcMain.handle('resource:state', async () => {
+    return await getResourceState();
+  });
+
+  // Attention Manager
+  ipcMain.handle('attention:state', () => {
+    return getAttentionState();
+  });
+
+  ipcMain.handle('attention:dnD', (_event, v: boolean) => {
+    setDoNotDisturb(v);
+    return { ok: true };
+  });
+
+  // Identity Manager
+  ipcMain.handle('identity:get', () => {
+    return getIdentity();
+  });
+
+  ipcMain.handle('identity:save', (_event, patch: Record<string, unknown>) => {
+    saveIdentity(patch as any);
+    return { ok: true };
+  });
+
+  ipcMain.handle('identity:reset', () => {
+    resetIdentity();
+    return { ok: true };
+  });
+
+  // Knowledge Graph
+  ipcMain.handle('graph:addRelation', (_event, fromId: number, toId: number, relation: string, weight?: number) => {
+    const id = addRelation(fromId, toId, relation, weight);
+    return { ok: id !== null, id };
+  });
+
+  ipcMain.handle('graph:getRelated', (_event, factId: number, types?: string[]) => {
+    return getRelatedFacts(factId, types);
+  });
+
+  ipcMain.handle('graph:removeRelation', (_event, id: number) => {
+    removeRelation(id);
+    return { ok: true };
+  });
+
+  ipcMain.handle('graph:stats', () => {
+    return getRelationStats();
+  });
+
+  ipcMain.handle('graph:autoLink', (_event, factId: number) => {
+    const count = autoLinkFacts(factId);
+    return { ok: true, linkedCount: count };
+  });
+
+  // Executive Manager
+  ipcMain.handle('exec:createGoal', (_event, description: string, subgoals: string[]) => {
+    try {
+      const goal = createGoal(description, subgoals);
+      return { ok: true, goal };
+    } catch (e) {
+      return { ok: false, error: (e as Error).message };
+    }
+  });
+
+  ipcMain.handle('exec:getActive', () => {
+    return getActiveGoals();
+  });
+
+  ipcMain.handle('exec:getAll', () => {
+    return getAllGoals();
+  });
+
+  ipcMain.handle('exec:updateSubgoal', (_event, goalId: number, index: number, status: string) => {
+    updateSubgoalStatus(goalId, index, status as any);
+    return { ok: true };
+  });
+
+  ipcMain.handle('exec:interrupt', (_event, goalId: number, snapshot?: string) => {
+    interruptGoal(goalId, snapshot);
+    return { ok: true };
+  });
+
+  ipcMain.handle('exec:resume', (_event, goalId: number) => {
+    const goal = resumeGoal(goalId);
+    return { ok: !!goal, goal };
+  });
+
+  ipcMain.handle('exec:complete', (_event, goalId: number) => {
+    completeGoal(goalId);
+    return { ok: true };
+  });
+
+  ipcMain.handle('exec:cancel', (_event, goalId: number) => {
+    cancelGoal(goalId);
+    return { ok: true };
+  });
+
+  // World Model
+  ipcMain.handle('world:state', async () => {
+    return await buildWorldState();
+  });
+
+  // Meta Learning
+  ipcMain.handle('meta:insights', () => {
+    return getInsights();
+  });
+
+  ipcMain.handle('meta:reset', () => {
+    resetLearning();
+    return { ok: true };
+  });
+
+  // Execution Modes (Multi-Agent)
+  ipcMain.handle('modes:current', () => {
+    return { mode: getCurrentMode(), config: getModeConfig() };
+  });
+
+  ipcMain.handle('modes:list', () => {
+    return listModes();
+  });
+
+  ipcMain.handle('modes:set', (_event, mode: string) => {
+    setMode(mode as any);
+    return { ok: true, mode: getCurrentMode() };
+  });
+
+  // Sleep States
+  ipcMain.handle('states:current', () => {
+    return { state: getCurrentState(), label: getStateLabel(), config: getStateConfig() };
+  });
+
+  ipcMain.handle('states:list', () => {
+    return listStates();
+  });
+
+  // Internal Monologue
+  ipcMain.handle('thoughts:recent', () => {
+    return getRecentThoughts(10);
+  });
+
+  ipcMain.handle('thoughts:clear', () => {
+    clearThoughts();
+    return { ok: true };
+  });
+
+  // Memory Compression
+  ipcMain.handle('memory:maintenance', () => {
+    return runMaintenance();
+  });
+
+  // Self Review
+  ipcMain.handle('review:recent', () => {
+    return getRecentReviews(10);
+  });
+
+  ipcMain.handle('review:summary', () => {
+    return getReviewSummary();
+  });
+
+  ipcMain.handle('review:deep', async () => {
+    return await runDeepReview();
+  });
+
+  ipcMain.handle('review:clear', () => {
+    clearReviews();
+    return { ok: true };
+  });
+
   // Reminders
   ipcMain.handle('reminders:create', async (_event, text: string, triggerAt: string) => {
     try {
@@ -655,6 +854,25 @@ function registerIpcHandlers(): void {
 
 app.whenReady().then(() => {
   initMemory();
+
+  // Invalidate stale conversation_id (e.g. after DB reset)
+  const { getConversationExists } = require('./memory/store');
+  const storedId = configStore.get('currentConversationId');
+  if (storedId && !getConversationExists(storedId)) {
+    configStore.delete('currentConversationId');
+    console.log('[UNA] Invalidated stale conversationId:', storedId);
+  }
+
+  // Force cloud provider with Hugging Face (overrides persisted electron-store)
+  setLLMConfig({
+    provider: 'cloud',
+    cloudProvider: 'gemini',
+    cloudBaseUrl: 'https://generativelanguage.googleapis.com/v1beta',
+    cloudModel: 'gemini-flash-latest',
+    cloudApiKey: 'AQ.Ab8RN6K-lgZSv6yGw26NWwe8kUzS62p4GPenbJUDLDppTLha_A',
+    maxTokens: 16384,
+  });
+
   initRemindersTable();
   createMainWindow();
   startReminderChecker(mainWindow);
@@ -670,6 +888,7 @@ app.whenReady().then(() => {
   // Фоновые движки — U.N.A. работает даже когда окно закрыто
   startBackgroundMonitor();
   startProactiveEngine(() => mainWindow);
+  startLifeLoop(() => mainWindow);
   startTelegramBot();
 
   console.log('[U.N.A.] v13 готова. Background engines started.');
@@ -711,6 +930,7 @@ app.on('window-all-closed', () => {
 app.on('before-quit', () => {
   stopProactiveEngine();
   stopBackgroundMonitor();
+  stopLifeLoop();
   stopReminderChecker();
   stopTelegramBot();
   closeMemory();
@@ -719,3 +939,4 @@ app.on('before-quit', () => {
 
 // Расширяем тип app
 // app.isQuitting handled via (app as any)
+

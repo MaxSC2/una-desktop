@@ -12,7 +12,7 @@
 import { useState } from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { Check, Copy } from 'lucide-react';
+import { CheckIcon, CopyIcon } from '@/components/ui/animated-icons';
 
 interface CodeBlockProps {
   code: string;
@@ -64,12 +64,12 @@ export function CodeBlock({ code, language = 'text', showLineNumbers = false }: 
         >
           {copied ? (
             <>
-              <Check className="w-3 h-3 text-emerald-400" />
+              <CheckIcon size={12} className="text-emerald-400" />
               <span className="text-emerald-400">Скопировано</span>
             </>
           ) : (
             <>
-              <Copy className="w-3 h-3" />
+              <CopyIcon size={12} />
               <span>Копировать</span>
             </>
           )}

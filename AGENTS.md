@@ -248,3 +248,36 @@ function extractToolCallsFromContent(content: string): LLMResponse['tool_calls']
 
 ### Файл: src/hooks/useUNA.ts
 - `stopGeneration` больше не шлёт `___STOP_GENERATION___`, а вызывает `window.una.chat.stop()`
+
+## Новые правки (Memory Pods — Phase 1)
+
+### Добавлены файлы:
+- `electron/memory/pods.ts` — Memory Director, классификатор `classifyToPod()`, поиск релевантных подов `findRelevantPods()`
+
+### Файл: electron/memory/store.ts
+- `memory_pods` таблица SQLite + `ALTER TABLE facts ADD COLUMN pod_id` миграция в `initMemory()`
+- Seed 6 подов по умолчанию: profile, project, preference, emotion, work, general
+- `Fact` interface: новый `pod_id?: number`
+- Новые экспорты: `createPod()`, `listPods()`, `getPod()`, `getPodByName()`, `deletePod()`, `incrementPodUse()`
+- `saveFact()` — 3-й параметр `podId?: number`
+- `recallFacts()` — 3-й параметр `podId?: number` для фильтрации по поду
+
+### Файл: electron/memory/rlm.ts
+- `HotContext.activePods` — список активных подов (топ-3 по релевантности)
+- `buildHotContext()` — находит релевантные поды через `findRelevantPods()`, инкрементирует их use_count
+- `buildMessagesFromHot()` — добавляет `[Доступные модули памяти]` блок в user message
+- `MemoryToken` — новые actions: `create_pod`, `switch_pod`
+- `parseMemoryTokens()` — валидирует create_pod и switch_pod
+- `executeMemoryTokens()` — обработчики create_pod (создание пода) и switch_pod (переключение фокуса)
+- `getMemoryInstructions()` — документация подов в системном промпте
+
+### Файл: electron/ai/dynamic-prompt/index.ts
+- Импорт `listPods` из store
+- Новый шаг 8: `# Доступные модули памяти` в system prompt со списком всех подов
+
+### Архитектура Memory Pods
+- **Поды** — тематические контейнеры фактов (Profile, Work, Emotions и т.д.)
+- **Memory Director** в pods.ts — классифицирует факты по ключевым словам
+- **Два уровня RAG**: (1) выбор релевантных подов по query, (2) поиск фактов внутри подов
+- **LLM self-management**: [MEM] create_pod, [MEM] switch_pod
+- **Backward compat**: старые факты без pod_id → 'general' под, recallFacts без podId = все поды

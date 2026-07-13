@@ -57,7 +57,7 @@ const UNA_API = {
   },
   // События от main
   on: (channel: string, cb: (...args: any[]) => void) => {
-    const validChannels = ['overlay:start-listening', 'chat:chunk', 'chat:stream-end', 'chat:stream-error', 'reminder:fire', 'update:available', 'update:not-available', 'update:downloaded'];
+    const validChannels = ['overlay:start-listening', 'chat:chunk', 'chat:stream-end', 'chat:stream-error', 'reminder:fire', 'proactive:suggestion', 'update:available', 'update:not-available', 'update:downloaded'];
     if (validChannels.includes(channel)) {
       const listener = (_e: unknown, ...args: any[]) => cb(...args);
       ipcRenderer.on(channel, listener);
