@@ -103,10 +103,20 @@ export async function chatWithTools(
     }
   }
 
-  if (cfg.cloudProvider === 'gemini') {
-    return chatGemini(cfg, messages, tools, signal);
+  try {
+    if (cfg.cloudProvider === 'gemini') {
+      return await chatGemini(cfg, messages, tools, signal);
+    }
+    return await chatCloud(cfg, messages, tools, signal);
+  } catch (e) {
+    console.error('[LLM] Cloud failed:', e);
+    // Fallback: облако недоступно (невалидный ключ / нет сети) — пробуем локальный Ollama
+    if (await isOllamaAvailable(cfg.localUrl)) {
+      console.warn('[LLM] Falling back to local Ollama:', cfg.localModel);
+      return chatOllama(cfg, messages, tools, signal);
+    }
+    throw e;
   }
-  return chatCloud(cfg, messages, tools, signal);
 }
 
 /**
@@ -140,10 +150,20 @@ export async function chatWithToolsStream(
     }
   }
 
-  if (cfg.cloudProvider === 'gemini') {
-    return chatGeminiStream(cfg, messages, tools, onChunk, signal);
+  try {
+    if (cfg.cloudProvider === 'gemini') {
+      return await chatGeminiStream(cfg, messages, tools, onChunk, signal);
+    }
+    return await chatCloudStream(cfg, messages, tools, onChunk, signal);
+  } catch (e) {
+    console.error('[LLM] Cloud stream failed:', e);
+    // Fallback: облако недоступно — пробуем локальный Ollama (стрим)
+    if (await isOllamaAvailable(cfg.localUrl)) {
+      console.warn('[LLM] Falling back to local Ollama stream:', cfg.localModel);
+      return chatOllamaStream(cfg, messages, tools, onChunk, signal);
+    }
+    throw e;
   }
-  return chatCloudStream(cfg, messages, tools, onChunk, signal);
 }
 
 export type StreamChunk =

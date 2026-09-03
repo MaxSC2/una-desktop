@@ -6,6 +6,57 @@
 
 ---
 
+## [v30] — 2026-09-03
+
+### Fixed — P0: FTS5 «SQL logic error» (память фактов падала на UPDATE/DELETE)
+
+- **Было:** любой `UPDATE facts` (recallFacts, incrementFactUse, setFactImportance,
+  markFactForget) и `DELETE FROM facts` (deleteFact) падал с `SqliteError: SQL logic error`.
+- **Причина:** `facts_fts` была создана как **обычная** FTS5-таблица, а триггеры
+  `facts_ad`/`facts_au` использовали FTS5-команду `'delete'` — она допустима только
+  для external-content таблиц. Дополнительно deleteFact делал двойное удаление
+  (вручную из facts_fts + через триггер).
+- **Стало:** `facts_fts` переведена на external-content режим
+  (`content='facts', content_rowid='id'`). Автоматическая миграция существующих
+  БД при старте (пересоздание таблицы + `rebuild` индекса). Ручной `DELETE FROM
+  facts_fts` в deleteFact убран — синхронизирует триггер `facts_ad`.
+- **Проверено:** воспроизводимый минимальный тест до/после; **203/203 тестов pass**.
+
+### Added — Голос работает «из коробки» (без Piper / Z.ai)
+
+- **TTS fallback:** если серверный TTS вернул пустое аудио (Piper/Z.ai не
+  настроены), ответ озвучивается системным голосом через `speechSynthesis`
+  (работает в Electron на Windows из коробки). «Стоп» останавливает и его.
+- **ASR fallback:** если ASR не настроен (нет whisper.cpp и облачного ключа),
+  рендерер пробует встроенное Web Speech API; при полном отсутствии — понятное
+  сообщение в чате вместо молчаливого сброса статуса.
+
+### Added — LLM resilience: облако → локальный Ollama
+
+- `chatWithTools` / `chatWithToolsStream`: при ошибке облачного провайдера
+  (невалидный ключ, нет сети) автоматический fallback на локальный Ollama
+  (если запущен). Раньше ассистент молчал при протухшем ключе.
+
+### Added — Инфраструктура сборки/тестов
+
+- `npm run rebuild:node` / `npm run rebuild:electron` — управление ABI
+  better-sqlite3 (Node 22 для vitest = MODULE_VERSION 127 vs Electron 33 = 130).
+- `npm test` автоматически пересобирает модуль под Node; `npm run dev` — под
+  Electron. Устраняет 27 «фантомных» падений тестов памяти.
+
+### Added — Graphiti как долговременная память (MCP)
+
+- Документация `docs/GRAPHITI_MEMORY.md`: подключение темпорального графа знаний
+  [getzep/graphiti](https://github.com/getzep/graphiti) через MCP-адаптер.
+- Заготовка конфига `graphiti-memory` в `DEFAULT_MCP_SERVERS` (stdio + mcp-remote).
+
+### Statistics
+- **203/203 тестов pass** (было 173/203)
+- TypeScript: 0 ошибок (electron + renderer)
+- Vite build: ✓ (1.45 MB JS)
+
+---
+
 ## [v29] — 2026-07-29
 
 ### Fixed — 3 критичных бага от пользователя

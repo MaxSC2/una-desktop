@@ -4,22 +4,21 @@
 
 import { describe, it, expect, vi } from 'vitest';
 
-vi.mock('dns', () => ({
-  default: {
-    resolve4: vi.fn((hostname: string, cb: (err: Error | null, addresses?: string[]) => void) => {
-      cb(null, hostname.includes('localhost') ? ['127.0.0.1'] : ['93.184.216.34']);
-    }),
-    resolve6: vi.fn((_hostname: string, cb: (err: Error | null, addresses?: string[]) => void) => {
-      cb(Object.assign(new Error('ENODATA'), { code: 'ENODATA' }));
-    }),
-  },
-  resolve4: vi.fn((hostname: string, cb: (err: Error | null, addresses?: string[]) => void) => {
-    cb(null, hostname.includes('localhost') ? ['127.0.0.1'] : ['93.184.216.34']);
-  }),
-  resolve6: vi.fn((_hostname: string, cb: (err: Error | null, addresses?: string[]) => void) => {
+vi.mock('dns', () => {
+  const isLocalHost = (hostname: string) =>
+    hostname === 'localhost' || hostname.endsWith('.localhost');
+  const resolve4 = vi.fn((hostname: string, cb: (err: Error | null, addresses?: string[]) => void) => {
+    cb(null, isLocalHost(hostname) ? ['127.0.0.1'] : ['93.184.216.34']);
+  });
+  const resolve6 = vi.fn((_hostname: string, cb: (err: Error | null, addresses?: string[]) => void) => {
     cb(Object.assign(new Error('ENODATA'), { code: 'ENODATA' }));
-  }),
-}));
+  });
+  return {
+    default: { resolve4, resolve6 },
+    resolve4,
+    resolve6,
+  };
+});
 
 import { isUrlSafe } from '../../electron/ai/web-tools';
 

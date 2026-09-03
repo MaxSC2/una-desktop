@@ -18,7 +18,7 @@
 
 import { BrowserWindow, desktopCapturer } from 'electron';
 import { chatWithTools, chatWithToolsStream, ChatMessage, LLMResponse, StreamChunk } from './llm';
-import { dispatchTool, TOOL_DEFINITIONS, ToolContext, ToolResult } from '../tools';
+import { dispatchTool, getToolDefinitions, ToolContext, ToolResult } from '../tools';
 import { saveFact, recallFacts } from '../memory/store';
 import { analyzeImage } from './llm';
 import { classifyCommand } from '../safety/classifier';
@@ -92,8 +92,8 @@ export async function executeToolLoop(options: ToolLoopOptions): Promise<ToolLoo
   // Определяем намерение и режим выполнения
   const intent = detectIntent(userMessage);
   const mode = resolveMode(intent);
-  let currentTools = filterToolsByMode(TOOL_DEFINITIONS, mode);
-  console.log(`[ToolLoop] Intent: ${intent}, Mode: ${mode}, tools: ${currentTools.length}/${TOOL_DEFINITIONS.length}`);
+  let currentTools = filterToolsByMode(getToolDefinitions(), mode);
+  console.log(`[ToolLoop] Intent: ${intent}, Mode: ${mode}, tools: ${currentTools.length}/${getToolDefinitions().length}`);
 
   const messages: ChatMessage[] = [
     { role: 'system', content: systemPrompt },
@@ -110,7 +110,7 @@ export async function executeToolLoop(options: ToolLoopOptions): Promise<ToolLoo
   for (let round = 0; round < maxRounds; round++) {
     // Round 2+: расширяем до всех инструментов (модель уже видит результаты tool call'ов)
     if (round >= 1) {
-      currentTools = TOOL_DEFINITIONS;
+      currentTools = getToolDefinitions();
     }
 
     // Call LLM (streaming or non-streaming)
@@ -375,3 +375,4 @@ async function handleScreenshotTool(
     return { success: false, error: `Screenshot/VLM failed: ${(e as Error).message}` };
   }
 }
+

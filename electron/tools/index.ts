@@ -1,12 +1,10 @@
-/**
- * Инструменты U.N.A. — реальные операции с файловой системой.
- *
- * Каждый инструмент возвращает структурированный результат.
- * Опасные операции не выполняются, а возвращают запрос на подтверждение.
+﻿/**
+ * U.N.A. Tools - central tool registration and dispatch.
  */
-
-import { dispatch, getAll, register } from './registry';
+import { dispatch, getAll, getHandler, register } from './registry';
 import { ToolContext, ToolResult } from './helpers';
+import { mcpAdapter } from '../ai/mcp-adapter';
+
 import * as listFiles from './definitions/list-files';
 import * as readFile from './definitions/read-file';
 import * as writeFile from './definitions/write-file';
@@ -60,19 +58,33 @@ register('list_windows', listWindows.definition, listWindows.handler);
 register('create_reminder', createReminder.definition, createReminder.handler);
 
 /**
- * Определения инструментов для function calling LLM.
+ * Local tool definitions (static, for backward compat).
  */
 export const TOOL_DEFINITIONS = getAll();
 
 /**
- * Диспетчер инструментов.
+ * Get all tool definitions (local + MCP).
+ */
+export function getToolDefinitions() {
+  return [...getAll(), ...mcpAdapter.getToolDefinitions()];
+}
+
+/**
+ * Dispatch tool with MCP fallback.
  */
 export async function dispatchTool(
   name: string,
   args: Record<string, unknown>,
   ctx: ToolContext
 ): Promise<ToolResult> {
-  return dispatch(name, args, ctx);
+  if (getHandler(name)) {
+    return dispatch(name, args, ctx);
+  }
+  try {
+    return await mcpAdapter.callTool(name, args, ctx);
+  } catch (e) {
+    return { success: false, error: 'Tool not found locally or via MCP: ' + name + '. ' + (e as Error).message };
+  }
 }
 
 export type { ToolContext, ToolResult };

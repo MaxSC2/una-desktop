@@ -158,9 +158,14 @@ export function initMemory(): void {
     CREATE INDEX IF NOT EXISTS idx_pods_name ON memory_pods(name);
     CREATE INDEX IF NOT EXISTS idx_pods_last_used ON memory_pods(last_used);
 
-    -- FTS5 index for full-text search on facts content
+    -- FTS5 index for full-text search on facts content.
+    -- ВАЖНО: external-content таблица (content='facts') — только в этом режиме
+    -- допустима FTS5-команда 'delete' в триггерах. На обычной FTS5-таблице
+    -- любой UPDATE/DELETE на facts вызывал "SQL logic error".
     CREATE VIRTUAL TABLE IF NOT EXISTS facts_fts USING fts5(
       content,
+      content='facts',
+      content_rowid='id',
       tokenize='unicode61'
     );
 
@@ -196,6 +201,21 @@ export function initMemory(): void {
   try {
     db.exec(`INSERT INTO facts_fts(facts_fts) VALUES('rebuild')`);
   } catch { /* already populated */ }
+
+  // Migration: старые БД имеют facts_fts как ОБЫЧНУЮ FTS5-таблицу (без content='facts').
+  // В таком режиме триггеры с FTS5-командой 'delete' вызывают "SQL logic error".
+  // Пересоздаём как external-content таблицу и перестраиваем индекс.
+  try {
+    const ftsSql = (db.prepare(`SELECT sql FROM sqlite_master WHERE type='table' AND name='facts_fts'`).get() as { sql?: string } | undefined)?.sql ?? '';
+    if (ftsSql.length > 0 && !ftsSql.includes(`content='facts'`) && !ftsSql.includes(`content="facts"`)) {
+      db.exec(`DROP TABLE facts_fts`);
+      db.exec(`CREATE VIRTUAL TABLE facts_fts USING fts5(content, content='facts', content_rowid='id', tokenize='unicode61')`);
+      db.exec(`INSERT INTO facts_fts(facts_fts) VALUES('rebuild')`);
+      console.log('[Memory] Migrated facts_fts to external-content FTS5 table');
+    }
+  } catch (e) {
+    console.warn('[Memory] FTS migration failed:', e);
+  }
 
   // Pod schema migration: add pod_id column to facts
   try {
@@ -574,7 +594,8 @@ export function listFacts(): Fact[] {
 
 export function deleteFact(id: number): void {
   if (!db) return;
-  db.prepare('DELETE FROM facts_fts WHERE rowid = ?').run(id);
+  // Синхронизацию FTS выполняет триггер facts_ad (external-content таблица).
+  // Ручной `DELETE FROM facts_fts` здесь запрещён для external-content и был бы двойным удалением.
   db.prepare('DELETE FROM facts WHERE id = ?').run(id);
 }
 

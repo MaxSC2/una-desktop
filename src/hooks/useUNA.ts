@@ -59,6 +59,9 @@ export function useUNA() {
 
         if (data.audio_base64 && store.voiceEnabled) {
           playAudio(data.audio_base64);
+        } else if (store.voiceEnabled && data.reply) {
+          // Fallback: серверный TTS не настроен — озвучиваем системным голосом ОС
+          speakText(data.reply);
         }
 
         return data;
@@ -137,6 +140,9 @@ export function useUNA() {
 
         if (data.audio_base64 && store.voiceEnabled) {
           playAudio(data.audio_base64);
+        } else if (store.voiceEnabled && data.reply) {
+          // Fallback: серверный TTS не настроен — озвучиваем системным голосом ОС
+          speakText(data.reply);
         }
       });
 
@@ -219,11 +225,26 @@ export function useUNA() {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
     }
+    // Останавливаем и системный синтез речи (fallback-озвучка)
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
     if (store.status === 'speaking') store.setStatus('idle');
   }, [store]);
 
   const startListening = useCallback(async () => {
     store.setStatus('listening');
+
+    // Если серверный ASR не настроен (нет whisper.cpp / облачного ключа) —
+    // пробуем встроенное распознавание речи движка (best-effort).
+    if (!(await hasServerAsr()) && getSpeechRecognitionCtor()) {
+      const started = startWebSpeechRecognition(
+        (t) => { void sendMessage(t); },
+        (s) => store.setStatus(s),
+      );
+      if (started) return; // WebSpeech запущен, MediaRecorder не нужен
+    }
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mr = new MediaRecorder(stream);
@@ -243,6 +264,12 @@ export function useUNA() {
           }
         } catch (e) {
           console.error('ASR error:', e);
+          store.addMessage({
+            id: genId(),
+            role: 'assistant',
+            content: '🎙️ Голосовой ввод недоступен: не настроен ASR (whisper.cpp или облачный ключ Z.ai). Укажите пути в настройках или произнесите команду ещё раз.',
+            timestamp: new Date().toISOString(),
+          });
           store.setStatus('idle');
         }
       };
@@ -299,4 +326,104 @@ function blobToBase64(blob: Blob): Promise<string> {
     reader.onerror = reject;
     reader.readAsDataURL(blob);
   });
+}
+
+// ============================================================
+// Голосовой fallback из коробки (без Piper / Z.ai)
+// ============================================================
+
+interface SpeechRecognitionLike {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  start: () => void;
+  stop: () => void;
+  onresult: ((e: unknown) => void) | null;
+  onerror: ((e: unknown) => void) | null;
+  onend: (() => void) | null;
+}
+
+function getSpeechRecognitionCtor(): (new () => SpeechRecognitionLike) | null {
+  const w = window as unknown as Record<string, unknown>;
+  return (w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null) as (new () => SpeechRecognitionLike) | null;
+}
+
+/**
+ * Проверяет, настроен ли серверный ASR (whisper.cpp или облачный ключ).
+ */
+async function hasServerAsr(): Promise<boolean> {
+  try {
+    const cfg = (await window.una.config.get()) as {
+      asr?: { provider?: string; whisperPath?: string; cloudApiKey?: string };
+    };
+    const asr = cfg?.asr;
+    if (!asr) return false;
+    if (asr.provider === 'local') return !!asr.whisperPath;
+    if (asr.provider === 'cloud') return !!asr.cloudApiKey;
+    // auto: работает если настроено хоть что-то
+    return !!asr.whisperPath || !!asr.cloudApiKey;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Живое распознавание через Web Speech API (best-effort; в части сборок
+ * Electron может быть недоступно — тогда возвращаем false и идём старым путём).
+ */
+function startWebSpeechRecognition(
+  onText: (text: string) => void,
+  onStatus: (status: 'listening' | 'idle') => void,
+): boolean {
+  const Ctor = getSpeechRecognitionCtor();
+  if (!Ctor) return false;
+  try {
+    const rec = new Ctor();
+    rec.lang = 'ru-RU';
+    rec.continuous = false;
+    rec.interimResults = false;
+    rec.onresult = (e: unknown) => {
+      const ev = e as { results: ArrayLike<ArrayLike<{ transcript?: string }>> };
+      const text = Array.from(ev.results as ArrayLike<any>)
+        .map((r) => r?.[0]?.transcript ?? '')
+        .join(' ')
+        .trim();
+      if (text) onText(text);
+    };
+    rec.onerror = () => onStatus('idle');
+    rec.onend = () => {
+      // Статус обновляется в onText (→ thinking) или onerror (→ idle)
+    };
+    rec.start();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Системная озвучка через speechSynthesis (работает в Electron на Windows/Linux/macOS).
+ * Используется когда Piper/Z.ai TTS не настроены — голос работает из коробки.
+ */
+function speakText(text: string) {
+  try {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    const clean = text
+      .replace(/```[\s\S]*?```/g, ' фрагмент кода ')
+      .replace(/[*_`#>|]/g, '')
+      .slice(0, 1000);
+    if (!clean.trim()) return;
+    window.speechSynthesis.cancel();
+    const utter = new SpeechSynthesisUtterance(clean);
+    const voices = window.speechSynthesis.getVoices();
+    const ruVoice = voices.find((v) => v.lang?.toLowerCase().startsWith('ru'));
+    if (ruVoice) utter.voice = ruVoice;
+    utter.lang = ruVoice?.lang ?? 'ru-RU';
+    utter.rate = 1.05;
+    utter.onstart = () => useStore.getState().setStatus('speaking');
+    utter.onend = () => useStore.getState().setStatus('idle');
+    window.speechSynthesis.speak(utter);
+  } catch (e) {
+    console.error('SpeechSynthesis error:', e);
+  }
 }

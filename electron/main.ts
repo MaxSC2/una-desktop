@@ -23,7 +23,8 @@ import { executeToolLoop } from './ai/tool-loop';
 import { buildHotContext, buildMessagesFromHot, getMemoryInstructions } from './memory/rlm';
 import { transcribe, getASRConfig, setASRConfig } from './ai/asr';
 import { synthesize, getTTSConfig, setTTSConfig } from './ai/tts';
-import { dispatchTool, TOOL_DEFINITIONS, ToolContext } from './tools';
+import { dispatchTool, getToolDefinitions, ToolContext } from './tools';
+import { mcpAdapter, DEFAULT_MCP_SERVERS } from './ai/mcp-adapter';
 import { UNA_SYSTEM_PROMPT } from '../prompts/system';
 import { buildDynamicPrompt, detectEmotion, detectTimeOfDay, detectWorkMode } from './ai/dynamic-prompt';
 import { validate, ChatSendSchema, ChatConfirmSchema, ASRTranscribeSchema, TTSSynthesizeSchema, FilesListSchema, ShellOpenSchema, MemoryDeleteFactSchema } from './validation/schemas';
@@ -863,6 +864,16 @@ app.whenReady().then(() => {
     console.log('[UNA] Invalidated stale conversationId:', storedId);
   }
 
+  // Initialize MCP adapter
+  for (const server of DEFAULT_MCP_SERVERS) {
+    mcpAdapter.registerServer(server);
+  }
+  mcpAdapter.connectAll().then((stats) => {
+    console.log('[UNA] MCP initialized:', stats);
+  }).catch((e) => {
+    console.warn('[UNA] MCP init failed:', e);
+  });
+
   // Force cloud provider with Hugging Face (overrides persisted electron-store)
   setLLMConfig({
     provider: 'cloud',
@@ -939,4 +950,5 @@ app.on('before-quit', () => {
 
 // Расширяем тип app
 // app.isQuitting handled via (app as any)
+
 

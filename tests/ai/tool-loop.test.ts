@@ -30,6 +30,16 @@ vi.mock('../../electron/tools', () => ({
       },
     },
   ],
+  getToolDefinitions: () => [
+    {
+      type: 'function',
+      function: {
+        name: 'system_info',
+        description: 'system info',
+        parameters: { type: 'object', properties: {}, required: [] },
+      },
+    },
+  ],
   dispatchTool: mocks.dispatchTool,
 }));
 

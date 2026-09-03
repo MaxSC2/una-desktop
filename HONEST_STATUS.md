@@ -1,6 +1,6 @@
 # U.N.A. Desktop — Честный статус (HONEST STATUS)
 
-> **Дата проверки:** 30 июня 2026 (перепроверено по реальному коду, не по старым записям)
+> **Дата проверки:** 3 сентября 2026 (перепроверено по реальному коду, не по старым записям)
 > **Версия проекта:** v40 (рабочее дерево)
 > **Цель:** Честно документировать что РЕАЛЬНО работает, что частично, что не работает.
 >
@@ -15,8 +15,8 @@
 |----------|---------|-----------|
 | TypeScript (electron) | `tsc -p electron/tsconfig.json --noEmit` | ✅ 0 ошибок |
 | TypeScript (renderer) | `tsc -p tsconfig.json --noEmit` | ✅ 0 ошибок |
-| Тесты | `vitest run` | ✅ 170 / 170 pass (3.36s) |
-| Сборка рендерера | `vite build` | ✅ собирается (1.28 MB JS, warning про размер чанка) |
+| Тесты | `vitest run` | ✅ 203 / 203 pass |
+| Сборка рендерера | `vite build` | ✅ собирается (1.45 MB JS, warning про размер чанка) |
 | Инструменты | `grep` по `TOOL_DEFINITIONS` | 24 инструмента |
 | Интеграции | `grep` по импортам `main.ts` | см. ниже |
 
@@ -50,7 +50,7 @@
 | take_screenshot | ✅ | через desktopCapturer |
 | analyze_screen | ✅ | через Z.ai Vision |
 | memory_save | ✅ | SQLite |
-| memory_recall | ⚠️ | Без embeddings (см. ниже) |
+| memory_recall | ✅ | FTS5 (external-content) + Ollama embeddings + hashing fallback. FTS5 «SQL logic error» на UPDATE/DELETE исправлен (v30) |
 | request_confirmation | ✅ | |
 | ask_clarification | ✅ | |
 | web_search | ✅ | через z-ai-web-dev-sdk |
@@ -64,9 +64,9 @@
 
 > **Важно:** 5 GUI-инструментов (`open_app`, `type_text`, `click`, `key_press`, `list_windows`)
 > **уже зарегистрированы** в `TOOL_DEFINITIONS` (реестр отфильтрован через `intent.ts`).
-> Реализация лежит в `electron/ai/gui-automation.ts`. Но их фактический запуск зависит от
-> наличия нативных зависимостей (`@nut-tree/nut-js` или `robotjs`), которые **не в package.json**.
-> Поэтому статус — «объявлены, но требуют установки нативной зависимости».
+> Реализация лежит в `electron/ai/gui-automation.ts`. Нативная зависимость
+> `@nut-tree-fork/nut-js` установлена в `package.json` (v30). Фактический запуск
+> GUI-автоматизации end-to-end на реальном рабочем столе пока не подтверждён.
 
 ### UI
 | Компонент | Статус | Заметки |
@@ -111,25 +111,30 @@
 
 ### Memory (embeddings)
 - **Сохранение фактов:** ✅ работает (SQLite, `saveFact`).
-- **Embeddings:** ❌ НЕ РАБОТАЕТ (`@xenova/transformers` — ESM в CJS окружении).
-- **Cosine similarity:** ❌ не считается.
-- **`memory_recall`:** возвращает факты, но без семантического поиска (только LIKE).
-- **Workaround в коде:** try-catch, возвращает null вместо throw.
+- **Embeddings:** ✅ работает через Ollama `/api/embed` (нейронные) + hashing fallback (задача #8).
+- **Cosine similarity:** ✅ считается в `recallFacts` (с FTS5-предфильтрацией).
+- **FTS5 «SQL logic error»:** ✅ исправлен в v30 — `facts_fts` переведена на
+  external-content режим, автамиграция существующих БД при старте.
+- **`memory_recall`:** ✅ работает (семантика + FTS + пороги).
 
 ### TTS (Piper)
 - **Локальный Piper:** ⚠️ требует ручной настройки путей.
 - **Облако Z.ai TTS:** ⚠️ требует валидный API ключ.
-- **Результат:** TTS молчит без настройки, но U.N.A. не падает.
+- **Fallback (v30):** ✅ если TTS не настроен — ответ озвучивается системным
+  голосом через `speechSynthesis` (работает в Electron на Windows из коробки).
 
 ### ASR (Whisper)
 - **Локальный whisper.cpp:** ⚠️ требует ручной настройки путей.
 - **Облако Z.ai ASR:** ⚠️ требует валидный API ключ.
-- **Результат:** голосовой ввод не работает без настройки.
+- **Fallback (v30):** ⚠️ при ненастроенном ASR рендерер пробует Web Speech API;
+  если недоступно — понятное сообщение в чате (раньше — молчаливый сброс).
 
 ### GUI Automation
 - **Архитектура:** ✅ реализована (`gui-automation.ts`, 5 инструментов).
 - **Регистрация в TOOL_DEFINITIONS:** ✅ инструменты добавлены.
-- **Нативная зависимость:** ❌ `@nut-tree/nut-js` / `robotjs` не в `package.json` — запуск в рантайме упадёт, пока не установлены.
+- **Нативная зависимость:** ✅ `@nut-tree-fork/nut-js` в `package.json`
+  (оригинальный `@nut-tree/nut-js` стал paid-only). End-to-end на реальном
+  рабочем столе пока не подтверждён.
 
 ---
 
@@ -147,7 +152,7 @@
 |--------|------|--------|
 | Multi-agent orchestrator | `electron/agents/index.ts` | ❌ не подключён (main.ts использует прямой `executeToolLoop`) |
 | Autonomous Loop | `electron/ai/autonomous-loop.ts` | ❌ не подключён |
-| MCP Adapter | `electron/ai/mcp-adapter.ts` | ❌ не подключён, без end-to-end тестов |
+| MCP Adapter | `electron/ai/mcp-adapter.ts` | ✅ подключён в `main.ts` + fallback диспетчер в `tools/index.ts` (v30). End-to-end с реальным MCP-сервером не проверен; см. docs/GRAPHITI_MEMORY.md |
 | Skills System | `electron/ai/skills.ts` | ❌ не подключён (dynamic creation не реализовано) |
 
 > Код этих подсистем существует и компилируется, но **не используется** в рантайме.
@@ -159,21 +164,21 @@
 
 ---
 
-## 📊 Реальный счёт (по проверенному коду)
+## 📊 Реальный счёт (по проверенному коду, v30)
 
 | Категория | Работает | Частично | Не работает |
 |-----------|----------|----------|-------------|
-| Инструменты (24) | 18 | 6 (memory_recall, 5 GUI) | 0 |
+| Инструменты (24) | 19 (вкл. memory_recall) | 5 (GUI, зависят от nut-js e2e) | 0 |
 | UI компоненты | 11 | 3 (avatar×2, rive) | 0 |
-| AI/cognition | — | streaming (2) | embeddings |
-| Память | факты (save/list) | recall (LIKE only) | embeddings (семантика) |
-| Автономность | 0 подключено | — | agents, loop, MCP, skills |
-| Голос | 0 | TTS + ASR (3) | 0 |
+| AI/cognition | streaming (2) | — | — |
+| Память | факты + recall (FTS5 + embeddings) | Graphiti (docs, конфиг-заготовка) | — |
+| Автономность | MCP подключён | — | agents, loop, skills |
+| Голос | TTS fallback (speechSynthesis) | Piper/Z.ai (по настройке), ASR fallback | — |
 | Безопасность | classifier + SSRF + env filter + protected files | — | — |
 
-### Честная оценка зрелости: 5.5/10
-Ядро (чат + tools + streaming + память фактов + безопасность) работает и протестировано.
-Крупные подсистемы (agents, autonomous loop, MCP, skills, GUI, embeddings) написаны, но не интегрированы.
+### Честная оценка зрелости: 7/10
+Ядро (чат + tools + streaming + память фактов + безопасность + голос-fallback) работает
+и протестировано (203/203). Не интегрированы: multi-agent, autonomous loop, skills.
 
 ---
 
@@ -189,8 +194,9 @@
 
 ## 🎯 Приоритеты на ближайшее время
 
-1. **Интегрировать multi-agent в `main.ts`** — код есть, но не используется.
-2. **Починить embeddings** — ESM-конверсия или CJS-альтернатива.
-3. **Подключить GUI-automation** — установить `@nut-tree/nut-js` / `robotjs`, проверить end-to-end.
-4. **Avatar redesign** — `UnaAvatar` по оценке пользователя сделан плохо.
-5. **Подключить Autonomous Loop / MCP / Skills** — после архитектурного решения о маршрутизации с multi-agent.
+1. ~~**Починить embeddings**~~ — ✅ решено через Ollama `/api/embed` + FTS5 fix (v30).
+2. ~~**MCP Adapter**~~ — ✅ подключён в main.ts (v30); end-to-end с Graphiti см. docs/GRAPHITI_MEMORY.md.
+3. **Интегрировать multi-agent в `main.ts`** — код есть, но не используется.
+4. **GUI-automation end-to-end** — зависимость установлена, проверить на реальном столе.
+5. **Avatar redesign** — `UnaAvatar` по оценке пользователя сделан плохо.
+6. **Подключить Autonomous Loop / Skills** — после архитектурного решения о маршрутизации с multi-agent.

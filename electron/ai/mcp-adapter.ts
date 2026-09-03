@@ -10,7 +10,7 @@
  */
 
 import { ChildProcess, spawn } from 'child_process';
-import { ToolContext, ToolResult } from '../tools';
+import { ToolContext, ToolResult } from '../tools/helpers';
 
 export interface MCPServerConfig {
   name: string;
@@ -308,6 +308,21 @@ export const mcpAdapter = new MCPAdapter();
 // ============================================================
 
 export const DEFAULT_MCP_SERVERS: MCPServerConfig[] = [
+  // Graphiti — темпоральный граф знаний как долговременная память U.N.A.
+  // (https://github.com/getzep/graphiti). Требует запущенный Graphiti MCP-сервер:
+  //   git clone https://github.com/getzep/graphiti.git
+  //   cd graphiti/mcp_server && uv sync && uv run main.py --group-id una
+  //   (env: OPENAI_BASE_URL=http://localhost:11434/v1, MODEL_NAME=qwen3:4b,
+  //    OPENAI_API_KEY=ollama, GRAPHITI_TELEMETRY_ENABLED=false)
+  // Полная инструкция: docs/GRAPHITI_MEMORY.md
+  // {
+  //   name: 'graphiti-memory',
+  //   transport: 'stdio',
+  //   command: 'npx',
+  //   args: ['-y', 'mcp-remote', 'http://localhost:8000/mcp/'],
+  //   env: { GRAPHITI_TELEMETRY_ENABLED: 'false' },
+  //   enabled: false,  // ← поставьте true после запуска сервера
+  // },
   // Примеры — раскомментируйте и настройте при необходимости
   // {
   //   name: 'github',
@@ -325,3 +340,4 @@ export const DEFAULT_MCP_SERVERS: MCPServerConfig[] = [
   //   enabled: false,
   // },
 ];
+
