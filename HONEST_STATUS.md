@@ -175,11 +175,13 @@
 | Голос | TTS fallback (speechSynthesis) | Piper/Z.ai (по настройке), ASR fallback | — |
 | Безопасность | classifier + SSRF + env filter + protected files | — | — |
 
-### Честная оценка зрелости: 7.5/10
+### Честная оценка зрелости: 8/10
 Ядро (чат + tools + streaming + память фактов + безопасность + голос-fallback) работает
 и протестировано (203/203). M1: local-first по умолчанию (Ollama qwen3:1.7b, think off),
-L0 pre-router (gui/system — < 50 мс, ноль GPU), TTL-кэш ресурсов (45с), MCP handshake починен.
-Не интегрированы: multi-agent, autonomous loop, skills.
+L0 pre-router (gui/system — < 50 мс, ноль GPU), MCP handshake починен.
+M2: ollama keep_alive 5m = VRAM-gate на простой (модель сама выгружается, пока играешь/работаешь),
+пример MCP-сервера обновлён на реальный graphiti-una stdio-сервер.
+Не интегрированы: multi-agent, autonomous loop, skills. Semantic router (L1) — в планах.
 
 ---
 

@@ -6,7 +6,26 @@
 
 ---
 
-## [v30] — 2026-09-03
+## [v31] — 2026-09-09
+
+### Fixed
+- **MCP handshake** (`electron/ai/mcp-adapter.ts`): `waitForResponse` вызывался с 3 аргументами вместо 4 — tsc падал, `npm run build` был неработоспособен. Передача `send` как 4-го арга инициализировала listener ДО записи в stdin (без гонки).
+
+### Added — M1: Local-first + L0 pre-router
+- **Local-first по умолчанию** (`electron/main.ts`, `electron/ai/config.ts`): убран принудительный cloud-провайдер Gemini с хардкод-ключом. Дефолт `provider: 'auto'` → сначала локальный Ollama `qwen3:1.7b` (помещается в 4GB VRAM), облако — только fallback. Хардкод-секреты удалены.
+- **Qwen3 think off** (`electron/ai/llm.ts`): `body.think = false` для моделей `qwen*` в обеих ветках (stream/non-stream) — убирает reasoning-блок, ускоряет в ~10×.
+- **L0 pre-router** (`electron/ai/tool-loop.ts` → `tryDirectCommand`): детерминированный путь для `gui`/`system` intent без LLM. «открой Discord» → `open_app` (< 50 мс, ноль GPU); «сколько памяти» → `system_info`. Регистр приложений (discord/telegram/chrome/code/calc/explorer/...).
+- **TTL-кэш ресурсов** (`electron/ai/resource-manager.ts`): `getResourceState` кэшируется 45с — убирает 3 процесса (nvidia-smi + 2×powershell) каждый тик life-loop.
+
+### Added — M2: VRAM-gate + Graphiti MCP
+- **Ollama keep_alive** (`electron/ai/llm.ts`): `keep_alive: '5m'` (env `OLLAMA_KEEP_ALIVE`) — при простое >5 мин Ollama сама выгружает модель из VRAM. Это и есть VRAM-gate: пока играешь/кодишь, запросов нет → VRAM освобождается автоматически, без отдельного gaming-детекта.
+- **MCP-пример** (`electron/ai/mcp-adapter.ts`): обновлён на реальный `graphiti-una` stdio-сервер (graphiti-core + Kuzu, без Docker).
+
+### Statistics
+- TypeScript: 0 ошибок (electron + renderer)
+- Vite build: ✓ (1.45 MB JS)
+- 203/203 тестов pass
+- Зрелость: 7.5/10 → 8/10
 
 ### Fixed — P0: FTS5 «SQL logic error» (память фактов падала на UPDATE/DELETE)
 
