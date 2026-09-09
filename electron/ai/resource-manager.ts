@@ -19,6 +19,8 @@ export type UserActivity = 'idle' | 'active' | 'gaming' | 'compiling' | 'meeting
 export type TaskPriority = 'critical' | 'background' | 'maintenance' | 'deferrable';
 
 let lastState: ResourceState | null = null;
+let lastStateAt = 0;
+const RESOURCE_TTL_MS = 45_000; // кэш состояния: не спавним nvidia-smi/powershell каждый тик
 let gpuAvailable: boolean | null = null;
 let lastGpuCheck = 0;
 
@@ -120,6 +122,13 @@ export function isIdle(thresholdMinutes = 5): boolean {
 }
 
 export async function getResourceState(): Promise<ResourceState> {
+  // TTL-кэш: жизнь-loop тикает каждые 15-30с; без кэша это 3 процесса за тик.
+  // С кэшем — свежий опрос раз в 45с, остальное — из памяти (ноль нагрузки).
+  const nowMs = Date.now();
+  if (lastState && nowMs - lastStateAt < RESOURCE_TTL_MS) {
+    return lastState;
+  }
+
   const cpus = os.cpus();
   const totalMem = os.totalmem();
   const freeMem = os.freemem();
@@ -146,6 +155,7 @@ export async function getResourceState(): Promise<ResourceState> {
   };
 
   lastState = state;
+  lastStateAt = Date.now();
   return state;
 }
 

@@ -45,7 +45,7 @@ export interface MCPCallResult {
 // ============================================================
 
 export class MCPAdapter {
-  private servers = new Map<string, { config: MCPServerConfig; process?: ChildProcess }>();
+  private servers = new Map<string, { config: MCPServerConfig; process?: ChildProcess; initialized?: boolean }>();
   private tools = new Map<string, MCPTool>();
   private initialized = false;
 
@@ -107,10 +107,12 @@ export class MCPAdapter {
 
       child.on('exit', (code) => {
         console.warn(`[MCP] Server ${name} exited with code ${code}`);
-        this.servers.set(name, { config });
+        // Сбрасываем состояние: при переподключении handshake нужен заново
+        this.servers.set(name, { config, initialized: false });
       });
 
       entry.process = child;
+      entry.initialized = false;
     } else if (config.transport === 'http') {
       // HTTP servers не требуют постоянного соединения
       // Проверяем доступность
@@ -201,34 +203,14 @@ export class MCPAdapter {
     });
 
     if (entry.config.transport === 'stdio' && entry.process) {
-      return new Promise((resolve, reject) => {
-        const child = entry.process!;
-        let responseData = '';
-
-        const timeout = setTimeout(() => {
-          reject(new Error(`MCP request timeout: ${method}`));
-        }, 30000);
-
-        const onData = (data: Buffer) => {
-          responseData += data.toString();
-          // Пытаемся распарсить как JSON-RPC response
-          try {
-            const parsed = JSON.parse(responseData);
-            if (parsed.id === requestId) {
-              clearTimeout(timeout);
-              child.stdout?.removeListener('data', onData);
-              if (parsed.error) {
-                reject(new Error(parsed.error.message ?? 'MCP error'));
-              } else {
-                resolve(parsed.result);
-              }
-            }
-          } catch {
-            // Не полный JSON, ждём ещё
-          }
-        };
-
-        child.stdout?.on('data', onData);
+      const child = entry.process;
+      // MCP spec: перед любым запросом нужен initialize-handshake
+      if (!entry.initialized && method !== 'initialize') {
+        await this.initializeServer(entry);
+      }
+      // send передаётся как 4-й аргумент: listener навешивается ДО записи в stdin,
+      // чтобы не потерять мгновенный ответ сервера (без гонки).
+      await this.waitForResponse(child, requestId, 30000, () => {
         child.stdin?.write(request + '\n');
       });
     } else if (entry.config.transport === 'http' && entry.config.url) {
@@ -253,6 +235,90 @@ export class MCPAdapter {
     } else {
       throw new Error(`Server ${serverName} not connected`);
     }
+  }
+
+  /**
+   * MCP initialize-handshake: обязателен перед любым запросом к stdio-серверу.
+   */
+  private async initializeServer(
+    entry: { config: MCPServerConfig; process?: ChildProcess; initialized?: boolean }
+  ): Promise<void> {
+    const child = entry.process;
+    if (!child) throw new Error('Server process not running');
+
+    const requestId = Math.random().toString(36).slice(2);
+    const request = JSON.stringify({
+      jsonrpc: '2.0',
+      id: requestId,
+      method: 'initialize',
+      params: {
+        protocolVersion: '2024-11-05',
+        capabilities: {},
+        clientInfo: { name: 'una-assistant', version: '1.0.0' },
+      },
+    });
+
+    await this.waitForResponse(child, requestId, 15000, () => {
+      child.stdin?.write(request + '\n');
+    });
+
+    // Уведомление о завершении инициализации (без id — это notification)
+    child.stdin?.write(
+      JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }) + '\n'
+    );
+    entry.initialized = true;
+    console.log(`[MCP] Server initialized: ${entry.config.name}`);
+  }
+
+  /**
+   * Ждёт JSON-RPC ответ с нужным id (построчный разбор stdout).
+   */
+  private waitForResponse(
+    child: ChildProcess,
+    requestId: string,
+    timeoutMs: number,
+    send: () => void
+  ): Promise<any> {
+    return new Promise((resolve, reject) => {
+      let responseData = '';
+
+      const cleanup = () => {
+        clearTimeout(timeout);
+        child.stdout?.removeListener('data', onData);
+      };
+
+      const timeout = setTimeout(() => {
+        cleanup();
+        reject(new Error('MCP request timeout'));
+      }, timeoutMs);
+
+      const onData = (data: Buffer) => {
+        responseData += data.toString();
+        // Построчный разбор: сервер может прислать несколько JSON-строк одним чанком
+        const lines = responseData.split('\n');
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed) continue;
+          try {
+            const parsed = JSON.parse(trimmed);
+            if (parsed.id === requestId) {
+              cleanup();
+              if (parsed.error) {
+                reject(new Error(parsed.error.message ?? 'MCP error'));
+              } else {
+                resolve(parsed.result);
+              }
+              return;
+            }
+          } catch {
+            // Строка ещё не полный JSON — ждём дальше
+          }
+        }
+      };
+
+      child.stdout?.on('data', onData);
+      send();
+    });
   }
 
   /**

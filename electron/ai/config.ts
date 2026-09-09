@@ -105,13 +105,13 @@ export const DEFAULT_CONFIG: UNAConfig = {
   unaIdentity: undefined,
 
   llm: {
-    provider: 'cloud',
+    provider: 'auto', // local-first: сначала Ollama, облако — только fallback
     localUrl: 'http://localhost:11434',
-    localModel: 'qwen3:4b',
-    cloudApiKey: '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',
-    cloudModel: 'Qwen/Qwen2.5-7B-Instruct',
-    cloudBaseUrl: 'https://router.huggingface.co/v1',
-    cloudProvider: 'openai',
+    localModel: 'qwen3:1.7b', // целиком влезает в 4GB VRAM (GTX 1650); быстрая
+    cloudApiKey: '', // задаётся пользователем в настройках — не хардкодим секреты
+    cloudModel: 'gemini-flash-latest',
+    cloudBaseUrl: 'https://generativelanguage.googleapis.com/v1beta',
+    cloudProvider: 'gemini',
     temperature: 0.6,
     maxTokens: 16384,
   },

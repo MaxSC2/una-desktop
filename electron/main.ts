@@ -874,14 +874,12 @@ app.whenReady().then(() => {
     console.warn('[UNA] MCP init failed:', e);
   });
 
-  // Force cloud provider with Hugging Face (overrides persisted electron-store)
+  // Local-first: Ollama — основной провайдер (дефолты в config.ts).
+  // Принудительный cloud убран: облако — только fallback при наличии
+  // пользовательского API-ключа. Никаких хардкод-секретов в коде.
   setLLMConfig({
-    provider: 'cloud',
-    cloudProvider: 'gemini',
-    cloudBaseUrl: 'https://generativelanguage.googleapis.com/v1beta',
-    cloudModel: 'gemini-flash-latest',
-    cloudApiKey: 'AQ.Ab8RN6K-lgZSv6yGw26NWwe8kUzS62p4GPenbJUDLDppTLha_A',
-    maxTokens: 16384,
+    provider: 'auto',
+    localUrl: 'http://localhost:11434',
   });
 
   initRemindersTable();

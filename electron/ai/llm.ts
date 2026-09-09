@@ -188,6 +188,10 @@ async function chatOllama(cfg: LLMConfig, messages: ChatMessage[], tools: any[],
     stream: false,
   };
   if (tools.length > 0) { body.tools = tools; }
+  // Qwen3 — отключаем reasoning-блок: быстрее и меньше токенов (проверено: 1.7b → ~14с на извлечение)
+  if (cfg.localModel.startsWith('qwen')) {
+    body.think = false;
+  }
 
   const resp = await fetch(`${cfg.localUrl}/api/chat`, {
     method: 'POST',
@@ -243,6 +247,10 @@ async function chatOllamaStream(
     stream: true,
   };
   if (tools.length > 0) { body.tools = tools; }
+  // Qwen3 — отключаем reasoning-блок в стриме тоже
+  if (cfg.localModel.startsWith('qwen')) {
+    body.think = false;
+  }
 
   const resp = await fetch(`${cfg.localUrl}/api/chat`, {
     method: 'POST',
