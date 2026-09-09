@@ -186,6 +186,10 @@ async function chatOllama(cfg: LLMConfig, messages: ChatMessage[], tools: any[],
     options: { num_ctx: optimalCtx },
     temperature: cfg.temperature,
     stream: false,
+    // keep_alive: простой > keep_alive минут → Ollama сам выгрузит модель из VRAM.
+    // Это даёт локальный VRAM-gate без отдельного gaming-детекта: пока играешь/кодишь,
+    // запросов к модели нет → VRAM освобождается автоматически.
+    keep_alive: process.env.OLLAMA_KEEP_ALIVE ?? '5m',
   };
   if (tools.length > 0) { body.tools = tools; }
   // Qwen3 — отключаем reasoning-блок: быстрее и меньше токенов (проверено: 1.7b → ~14с на извлечение)
@@ -245,6 +249,8 @@ async function chatOllamaStream(
     options: { num_ctx: optimalCtx },
     temperature: cfg.temperature,
     stream: true,
+    // keep_alive: VRAM-gate на простой (см. non-stream ветку)
+    keep_alive: process.env.OLLAMA_KEEP_ALIVE ?? '5m',
   };
   if (tools.length > 0) { body.tools = tools; }
   // Qwen3 — отключаем reasoning-блок в стриме тоже

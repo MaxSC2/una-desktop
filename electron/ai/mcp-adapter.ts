@@ -374,7 +374,7 @@ export const mcpAdapter = new MCPAdapter();
 // ============================================================
 
 export const DEFAULT_MCP_SERVERS: MCPServerConfig[] = [
-  // Graphiti — темпоральный граф знаний как долговременная память U.N.A.
+  // Graphiti-una — темпоральный граф знаний как долговременная память U.N.A.
   // (https://github.com/getzep/graphiti). Требует запущенный Graphiti MCP-сервер:
   //   git clone https://github.com/getzep/graphiti.git
   //   cd graphiti/mcp_server && uv sync && uv run main.py --group-id una
