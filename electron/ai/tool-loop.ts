@@ -24,6 +24,7 @@ import { analyzeImage } from './llm';
 import { classifyCommand } from '../safety/classifier';
 import { parseMemoryTokens, executeMemoryTokens, warmCacheAddMessage } from '../memory/rlm';
 import { detectIntent, filterToolsByIntent } from './intent';
+import { detectSemanticIntent, initSemanticRouter, SEMANTIC_CONFIDENCE_THRESHOLD } from './semantic-router';
 import { resolveMode, filterToolsByMode, getModeConfig } from './modes';
 import { reviewResponse } from './self-review';
 import { detectCorrection, recordInteraction, learnFromMessage } from './meta-learning';
@@ -90,8 +91,16 @@ export async function executeToolLoop(options: ToolLoopOptions): Promise<ToolLoo
   } = options;
 
   // Определяем намерение и режим выполнения
-  const intent = detectIntent(userMessage);
+  // L1: semantic router (embeddings) → fallback на regex
+  const semantic = await detectSemanticIntent(userMessage);
+  const intent =
+    semantic.confidence >= SEMANTIC_CONFIDENCE_THRESHOLD
+      ? semantic.intent
+      : detectIntent(userMessage);
   const mode = resolveMode(intent);
+  if (semantic.confidence >= SEMANTIC_CONFIDENCE_THRESHOLD) {
+    console.log(`[ToolLoop] Semantic intent: ${intent} (${semantic.confidence.toFixed(2)}), candidates: ${semantic.scores.map((s) => `${s.intent}:${s.score.toFixed(2)}`).join(', ')}`);
+  }
 
   // L0: детерминированный быстрый путь — простые команды без LLM (< 50 мс, ноль GPU)
   const direct = await tryDirectCommand(userMessage, toolContext);

@@ -181,7 +181,8 @@
 L0 pre-router (gui/system — < 50 мс, ноль GPU), MCP handshake починен.
 M2: ollama keep_alive 5m = VRAM-gate на простой (модель сама выгружается, пока играешь/работаешь),
 пример MCP-сервера обновлён на реальный graphiti-una stdio-сервер.
-Не интегрированы: multi-agent, autonomous loop, skills. Semantic router (L1) — в планах.
+L1: semantic router (embeddings-jитент) с regex-fallback активен.
+Не интегрированы: multi-agent, autonomous loop, skills.
 
 ---
 

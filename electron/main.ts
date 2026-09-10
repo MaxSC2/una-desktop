@@ -43,6 +43,7 @@ import { getCurrentMode, setMode, listModes, getModeConfig } from './ai/modes';
 import { getCurrentState, getStateLabel, getStateConfig, listStates } from './ai/states';
 import { getRecentThoughts, formatThoughtsForPrompt, clearThoughts } from './ai/monologue';
 import { runMaintenance } from './ai/compression';
+import { initSemanticRouter } from './ai/semantic-router';
 
 let mainWindow: BrowserWindow | null = null;
 let overlayWindow: BrowserWindow | null = null;
@@ -872,6 +873,12 @@ app.whenReady().then(() => {
     console.log('[UNA] MCP initialized:', stats);
   }).catch((e) => {
     console.warn('[UNA] MCP init failed:', e);
+  });
+
+  // L1: Semantic Router (embeddings-based intent detection)
+  // Предвычисляет центроиды якорных фраз — неблокирующе, с fallback на regex.
+  initSemanticRouter().catch((e) => {
+    console.warn('[UNA] Semantic router init failed (regex fallback active):', e);
   });
 
   // Local-first: Ollama — основной провайдер (дефолты в config.ts).

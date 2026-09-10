@@ -21,11 +21,15 @@
 - **Ollama keep_alive** (`electron/ai/llm.ts`): `keep_alive: '5m'` (env `OLLAMA_KEEP_ALIVE`) — при простое >5 мин Ollama сама выгружает модель из VRAM. Это и есть VRAM-gate: пока играешь/кодишь, запросов нет → VRAM освобождается автоматически, без отдельного gaming-детекта.
 - **MCP-пример** (`electron/ai/mcp-adapter.ts`): обновлён на реальный `graphiti-una` stdio-сервер (graphiti-core + Kuzu, без Docker).
 
+### Added — L1: Semantic Router
+- **Semantic Router** (`electron/ai/semantic-router.ts`): определение интента через embeddings (Ollama `/api/embed` + hashing-fallback). Предвычисленные центроиды якорных фраз (12 intents × 5 фраз) → cosine similarity. Confidence ≥ 0.6 = семантический intent, ниже — regex-fallback.
+- **Интеграция**: `tool-loop.ts` использует semantic-роутер с fallback на regex; `main.ts` инициализирует роутер при старте (неблокирующе, с логом). Логируются кандидаты.
+
 ### Statistics
 - TypeScript: 0 ошибок (electron + renderer)
 - Vite build: ✓ (1.45 MB JS)
 - 203/203 тестов pass
-- Зрелость: 7.5/10 → 8/10
+- Зрелость: 8/10 → 8.5/10
 
 ### Fixed — P0: FTS5 «SQL logic error» (память фактов падала на UPDATE/DELETE)
 
