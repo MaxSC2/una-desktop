@@ -44,6 +44,7 @@ import { getCurrentState, getStateLabel, getStateConfig, listStates } from './ai
 import { getRecentThoughts, formatThoughtsForPrompt, clearThoughts } from './ai/monologue';
 import { runMaintenance } from './ai/compression';
 import { initSemanticRouter } from './ai/semantic-router';
+import { startVramGate, stopVramGate } from './ai/vram-gate';
 
 let mainWindow: BrowserWindow | null = null;
 let overlayWindow: BrowserWindow | null = null;
@@ -905,6 +906,7 @@ app.whenReady().then(() => {
   startBackgroundMonitor();
   startProactiveEngine(() => mainWindow);
   startLifeLoop(() => mainWindow);
+  startVramGate(); // M3: gaming → keep_alive:0, VRAM free
   startTelegramBot();
 
   console.log('[U.N.A.] v13 готова. Background engines started.');
@@ -947,6 +949,7 @@ app.on('before-quit', () => {
   stopProactiveEngine();
   stopBackgroundMonitor();
   stopLifeLoop();
+  stopVramGate();
   stopReminderChecker();
   stopTelegramBot();
   closeMemory();

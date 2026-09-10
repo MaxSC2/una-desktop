@@ -90,6 +90,20 @@ const MEETING_APPS = [
   'zoom', 'teams', 'slack', 'discord', 'skype', 'webex',
 ];
 
+// Игры и лаунчеры: если такой процесс активен — это игровой сеанс, и UNA должна
+// освободить VRAM/CPU (модель выгружается через vram-gate).
+const GAME_PROCESSES = [
+  // Известные игры (Steam/Epic/standalone)
+  'steam', 'cs2', 'csgo', 'dota2', 'dota 2', 'valorant', 'fortnite', 'league of legends',
+  'wow.exe', 'gta5', 'gta v', 'cyberpunk', 'eldenring', 'sekiro', 'starfield',
+  'minecraft', 'terraria', 'overwatch', 'apex', 'pubg', 'warzone', 'destiny',
+  'rimworld', 'stellaris', 'civ6', 'civilization', 'baldurs', 'fallout', 'skyrim',
+  'mohaa', 'medal of honor', 'towerdefense', 'tower defense', 'factorio', 'satisfactory',
+  'forza', 'assettocorsa', 'warframe', 'pathofexile', 'diablo', 'witcher', 'rocketleague',
+  // Лаунчеры
+  'epicgames', 'ubisoft', 'gog', 'origin', 'battle.net', 'r5apex', 'steam.exe',
+];
+
 export function detectActivityByProcesses(): UserActivity {
   try {
     const result = execSync(
@@ -101,6 +115,11 @@ export function detectActivityByProcesses(): UserActivity {
 
     for (const meeting of MEETING_APPS) {
       if (processes.some((p: string) => p.includes(meeting))) return 'meeting';
+    }
+
+    // Игра активна → 'gaming' (приоритет выше headless-процессов)
+    for (const game of GAME_PROCESSES) {
+      if (processes.some((p: string) => p.includes(game))) return 'gaming';
     }
 
     const loadAvgs: number[] = os.loadavg();
