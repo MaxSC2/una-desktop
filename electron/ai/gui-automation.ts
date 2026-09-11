@@ -15,6 +15,7 @@
 import { exec, execFile } from 'child_process';
 import { promisify } from 'util';
 import * as os from 'os';
+import { resolveAppPath } from './app-resolver';
 
 const execAsync = promisify(exec);
 const execFileAsync = promisify(execFile);
@@ -40,8 +41,11 @@ export async function open_app(args: {
     let command: string;
 
     if (platform === 'win32') {
-      // Windows: start command
-      command = `start "" "${appName}"`;
+      // Windows: резолвим имя в путь (Start Menu / реестр / PATH).
+      // Прямой `start "" "Discord"` видит только PATH/App Paths — per-user
+      // приложения (Discord, Telegram, VS Code, Chrome) так не находятся.
+      const resolved = await resolveAppPath(appName);
+      command = `start "" "${resolved ?? appName}"`;
       if (args.args && args.args.length > 0) {
         command += ' ' + args.args.map((a) => `"${a}"`).join(' ');
       }

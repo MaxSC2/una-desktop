@@ -44,7 +44,7 @@ import { getCurrentState, getStateLabel, getStateConfig, listStates } from './ai
 import { getRecentThoughts, formatThoughtsForPrompt, clearThoughts } from './ai/monologue';
 import { runMaintenance } from './ai/compression';
 import { initSemanticRouter } from './ai/semantic-router';
-import { startVramGate, stopVramGate } from './ai/vram-gate';
+import { startVramGate, stopVramGate, isOllamaModelLoaded } from './ai/vram-gate';
 
 let mainWindow: BrowserWindow | null = null;
 let overlayWindow: BrowserWindow | null = null;
@@ -638,8 +638,11 @@ function registerIpcHandlers(): void {
   });
 
   // Life Loop + Resource Manager stats
-  ipcMain.handle('life-loop:stats', () => {
-    return getLifeLoopStats();
+  ipcMain.handle('life-loop:stats', async () => {
+    const stats = getLifeLoopStats();
+    // Реальное состояние модели в Ollama — спрашиваем напрямую (кэш vram-gate мог бы врасть).
+    const llmLoaded = await isOllamaModelLoaded().catch(() => false);
+    return { ...stats, llmLoaded };
   });
 
   ipcMain.handle('resource:state', async () => {
@@ -885,10 +888,14 @@ app.whenReady().then(() => {
   // Local-first: Ollama — основной провайдер (дефолты в config.ts).
   // Принудительный cloud убран: облако — только fallback при наличии
   // пользовательского API-ключа. Никаких хардкод-секретов в коде.
-  setLLMConfig({
-    provider: 'auto',
-    localUrl: 'http://localhost:11434',
-  });
+  // Не затираем осознанный выбор пользователя (облако с его ключом).
+  if (getLLMConfig().provider !== 'cloud') {
+    setLLMConfig({
+      provider: 'auto',
+      localUrl: 'http://127.0.0.1:11434',
+      localModel: 'qwen3:1.7b',
+    });
+  }
 
   initRemindersTable();
   createMainWindow();

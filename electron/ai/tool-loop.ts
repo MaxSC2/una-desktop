@@ -24,6 +24,7 @@ import { analyzeImage } from './llm';
 import { classifyCommand } from '../safety/classifier';
 import { parseMemoryTokens, executeMemoryTokens, warmCacheAddMessage } from '../memory/rlm';
 import { detectIntent, filterToolsByIntent } from './intent';
+import { tryFastCommand } from './fast-path';
 import { detectSemanticIntent, initSemanticRouter, SEMANTIC_CONFIDENCE_THRESHOLD } from './semantic-router';
 import { resolveMode, filterToolsByMode, getModeConfig } from './modes';
 import { reviewResponse } from './self-review';
@@ -98,6 +99,32 @@ export async function executeToolLoop(options: ToolLoopOptions): Promise<ToolLoo
       ? semantic.intent
       : detectIntent(userMessage);
   const mode = resolveMode(intent);
+
+  // L0 fast-path: детерминированные команды («открой Discord») без LLM.
+  const fastReply = await tryFastCommand(userMessage, toolContext);
+  if (fastReply !== null) {
+    console.log('[ToolLoop] Fast-path hit — LLM skipped');
+    warmCacheAddMessage('user', userMessage);
+    warmCacheAddMessage('assistant', fastReply);
+    return {
+      finalText: fastReply,
+      toolCallHistory: [
+        {
+          name: '_fast_path',
+          args: {},
+          result: { success: true, data: { fast: true } },
+          timestamp: new Date().toISOString(),
+        },
+      ],
+      pendingConfirmation: null,
+      maxRoundsHit: false,
+      messages: [
+        { role: 'user', content: userMessage },
+        { role: 'assistant', content: fastReply },
+      ],
+      provider: undefined,
+    };
+  }
   if (semantic.confidence >= SEMANTIC_CONFIDENCE_THRESHOLD) {
     console.log(`[ToolLoop] Semantic intent: ${intent} (${semantic.confidence.toFixed(2)}), candidates: ${semantic.scores.map((s) => `${s.intent}:${s.score.toFixed(2)}`).join(', ')}`);
   }

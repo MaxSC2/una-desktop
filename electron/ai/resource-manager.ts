@@ -24,6 +24,20 @@ const RESOURCE_TTL_MS = 45_000; // кэш состояния: не спавни�
 let gpuAvailable: boolean | null = null;
 let lastGpuCheck = 0;
 
+// CPU-время для дельты: os.loadavg() на Windows всегда возвращает [0,0,0],
+// поэтому CPU% считаем сами — по разности cpus().times между пробами.
+let lastCpuTimes: { idle: number; total: number } | null = null;
+
+function readCpuTimes(): { idle: number; total: number } {
+  let idle = 0;
+  let total = 0;
+  for (const cpu of os.cpus()) {
+    idle += cpu.times.idle;
+    total += cpu.times.user + cpu.times.nice + cpu.times.sys + cpu.times.idle + cpu.times.irq;
+  }
+  return { idle, total };
+}
+
 function minutesSince(ts: number): number {
   return (Date.now() - ts) / 60000;
 }
@@ -104,29 +118,39 @@ const GAME_PROCESSES = [
   'epicgames', 'ubisoft', 'gog', 'origin', 'battle.net', 'r5apex', 'steam.exe',
 ];
 
-export function detectActivityByProcesses(): UserActivity {
+export function detectActivityByProcesses(cpuPercent = 0): UserActivity {
   try {
+    // Один проход: имя + признак «есть окно». Headless-процессы (Steam/battle.net
+    // в трее) не должны выдавать 'gaming' — у активной игры окно всегда есть.
     const result = execSync(
-      'powershell -Command "Get-Process | Select-Object -ExpandProperty ProcessName"',
+      `powershell -NoProfile -Command "Get-Process | ForEach-Object { '{0}|{1}' -f $_.ProcessName, [int]($_.MainWindowHandle -ne 0) }"`,
       { timeout: 3000 }
     );
     const output = result.toString();
-    const processes: string[] = output.toLowerCase().split('\n').map((s: string) => s.trim());
+    const windowed: string[] = [];
+    const all: string[] = [];
+    for (const line of output.toLowerCase().split('\n')) {
+      const s = line.trim();
+      const idx = s.lastIndexOf('|');
+      if (idx <= 0) continue;
+      all.push(s.slice(0, idx));
+      if (s.slice(idx + 1) === '1') windowed.push(s.slice(0, idx));
+    }
+
+    // Игра активна → 'gaming'. Проверяем ПЕРВЫМ: Discord/Teams обычно открыты
+    // рядом с игрой, и прежний порядок «сначала meetings» ложно классифицировал
+    // игровой сеанс как 'meeting' — VRAM-gate молчал.
+    for (const game of GAME_PROCESSES) {
+      if (windowed.some((p: string) => p.includes(game))) return 'gaming';
+    }
 
     for (const meeting of MEETING_APPS) {
-      if (processes.some((p: string) => p.includes(meeting))) return 'meeting';
+      if (windowed.some((p: string) => p.includes(meeting))) return 'meeting';
     }
 
-    // Игра активна → 'gaming' (приоритет выше headless-процессов)
-    for (const game of GAME_PROCESSES) {
-      if (processes.some((p: string) => p.includes(game))) return 'gaming';
-    }
-
-    const loadAvgs: number[] = os.loadavg();
-    const cpu: number = loadAvgs.length > 0 ? loadAvgs[0] : 0;
-    const highCpu: boolean = cpu > os.cpus().length * 0.8;
+    const highCpu: boolean = cpuPercent > 80;
     for (const compile of COMPILING_PROCESSES) {
-      if (processes.some((p: string) => p.includes(compile)) && highCpu) return 'compiling';
+      if (all.some((p: string) => p.includes(compile)) && highCpu) return 'compiling';
     }
 
     return 'active';
@@ -151,13 +175,21 @@ export async function getResourceState(): Promise<ResourceState> {
   const cpus = os.cpus();
   const totalMem = os.totalmem();
   const freeMem = os.freemem();
-  const loadAvgs: number[] = os.loadavg();
-  const cpuLoad: number = loadAvgs.length > 0 ? loadAvgs[0] : 0;
-  const cpuPercent = Math.min(Math.round((cpuLoad / cpus.length) * 100), 100);
+
+  // CPU% по дельте cpus().times — loadavg на Windows мёртв (всегда 0),
+  // из-за чего cpuPercent был всегда 0 и 'compiling' никогда не детектился.
+  const cpuTimes = readCpuTimes();
+  let cpuPercent = 0;
+  if (lastCpuTimes && cpuTimes.total > lastCpuTimes.total) {
+    const idleDelta = cpuTimes.idle - lastCpuTimes.idle;
+    const totalDelta = cpuTimes.total - lastCpuTimes.total;
+    cpuPercent = Math.min(Math.max(Math.round((1 - idleDelta / totalDelta) * 100), 0), 100);
+  }
+  lastCpuTimes = cpuTimes;
 
   const [gpu, power] = await Promise.all([getGpuInfo(), getBatteryStatus()]);
 
-  let activity: UserActivity = detectActivityByProcesses();
+  let activity: UserActivity = detectActivityByProcesses(cpuPercent);
   if (isIdle(10) && cpuPercent < 10) activity = 'idle';
 
   const state: ResourceState = {

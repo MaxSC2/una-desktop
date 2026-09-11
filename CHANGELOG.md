@@ -25,10 +25,16 @@
 - **Semantic Router** (`electron/ai/semantic-router.ts`): определение интента через embeddings (Ollama `/api/embed` + hashing-fallback). Предвычисленные центроиды якорных фраз (12 intents × 5 фраз) → cosine similarity. Confidence ≥ 0.6 = семантический intent, ниже — regex-fallback.
 - **Интеграция**: `tool-loop.ts` использует semantic-роутер с fallback на regex; `main.ts` инициализирует роутер при старте (неблокирующе, с логом). Логируются кандидаты.
 
+### Added — M3: Gaming Detection + VRAM Gate
+- **Детект игр** (`electron/ai/resource-manager.ts`): список `GAME_PROCESSES` (Steam, CS2, Dota, Valorant, Minecraft, эмуляторы и др.) — раньше ветка `'gaming'` была мёртвой (никогда не срабатывала).
+- **VRAM Gate** (`electron/ai/vram-gate.ts`): при запуске игры → «тихий» запрос к Ollama с `keep_alive: 0` → модель выгружается из VRAM немедленно. Проверка каждые 15с, кулдаун 60с. Игра закрылась → модель подгрузится сама при следующем запросе.
+- **Интеграция**: старт/стоп в `main.ts` рядом с другими фоновыми движками.
+
 ### Statistics
 - TypeScript: 0 ошибок (electron + renderer)
 - Vite build: ✓ (1.45 MB JS)
 - 203/203 тестов pass
+- M3 smoke: PASS (gaming detection + vram-gate exports)
 - Зрелость: 8/10 → 8.5/10
 
 ### Fixed — P0: FTS5 «SQL logic error» (память фактов падала на UPDATE/DELETE)

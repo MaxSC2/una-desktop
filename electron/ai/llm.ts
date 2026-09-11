@@ -23,7 +23,93 @@ export interface LLMConfig {
   cloudBaseUrl: string;
   temperature: number;
   maxTokens: number;
-  cloudProvider: 'openai' | 'gemini';
+  cloudProvider: 'openai' | 'gemini' | 'groq' | 'openrouter';
+}
+
+/**
+ * Профили облачных провайдеров (M4).
+ * openai/groq/openrouter — OpenAI-совместимые (один код-путь chatCloud),
+ * gemini — нативный API (chatGemini).
+ */
+export type CloudProviderName = LLMConfig['cloudProvider'];
+
+interface CloudProfile {
+  provider: CloudProviderName;
+  baseUrl: string;
+  envKey: string;
+  defaultModel: string;
+  kind: 'openai-compat' | 'gemini';
+}
+
+const CLOUD_PROFILES: CloudProfile[] = [
+  {
+    provider: 'openai',
+    baseUrl: 'https://api.openai.com/v1',
+    envKey: 'OPENAI_API_KEY',
+    defaultModel: 'gpt-4o-mini',
+    kind: 'openai-compat',
+  },
+  {
+    provider: 'gemini',
+    baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
+    envKey: 'GEMINI_API_KEY',
+    defaultModel: 'gemini-flash-latest',
+    kind: 'gemini',
+  },
+  {
+    provider: 'groq',
+    baseUrl: 'https://api.groq.com/openai/v1',
+    envKey: 'GROQ_API_KEY',
+    defaultModel: 'llama-3.3-70b-versatile',
+    kind: 'openai-compat',
+  },
+  {
+    provider: 'openrouter',
+    baseUrl: 'https://openrouter.ai/api/v1',
+    envKey: 'OPENROUTER_API_KEY',
+    defaultModel: 'openai/gpt-4o-mini',
+    kind: 'openai-compat',
+  },
+];
+
+export interface CloudTarget {
+  profile: CloudProfile;
+  apiKey: string;
+  model: string;
+  baseUrl: string;
+}
+
+/**
+ * Строит упорядоченную цепочку облачных целей:
+ *  1) настроенный провайдер (ключ из UI или из env),
+ *  2) остальные провайдеры, у которых есть ключ в окружении.
+ * Пустой массив = облако не сконфигурировано.
+ */
+export function resolveCloudTargets(cfg: LLMConfig): CloudTarget[] {
+  const envKey = (k: string): string => (process.env[k] ?? '').trim();
+  const targets: CloudTarget[] = [];
+
+  const configured =
+    CLOUD_PROFILES.find((p) => p.provider === cfg.cloudProvider) ?? CLOUD_PROFILES[0];
+  const configuredKey = (cfg.cloudApiKey ?? '').trim() || envKey(configured.envKey);
+  if (configuredKey) {
+    targets.push({
+      profile: configured,
+      apiKey: configuredKey,
+      model: cfg.cloudModel || configured.defaultModel,
+      baseUrl: cfg.cloudBaseUrl || configured.baseUrl,
+    });
+  }
+
+  for (const p of CLOUD_PROFILES) {
+    if (p.provider === configured.provider) continue;
+    const key = envKey(p.envKey);
+    if (key) {
+      targets.push({ profile: p, apiKey: key, model: p.defaultModel, baseUrl: p.baseUrl });
+    }
+  }
+
+  return targets;
 }
 
 export interface ChatMessage {
@@ -103,20 +189,40 @@ export async function chatWithTools(
     }
   }
 
-  try {
-    if (cfg.cloudProvider === 'gemini') {
-      return await chatGemini(cfg, messages, tools, signal);
+  // M4: цепочка облачных провайдеров (настроенный → остальные с ключами в env)
+  const targets = resolveCloudTargets(cfg);
+  let lastErr: unknown = null;
+  for (const t of targets) {
+    const cloudCfg: LLMConfig = {
+      ...cfg,
+      cloudProvider: t.profile.provider,
+      cloudApiKey: t.apiKey,
+      cloudBaseUrl: t.baseUrl,
+      cloudModel: t.model,
+    };
+    try {
+      const res =
+        t.profile.kind === 'gemini'
+          ? await chatGemini(cloudCfg, messages, tools, signal)
+          : await chatCloud(cloudCfg, messages, tools, signal);
+      console.log(`[LLM] Cloud provider OK: ${t.profile.provider} (${t.model})`);
+      return res;
+    } catch (e) {
+      lastErr = e;
+      console.warn(`[LLM] Cloud provider ${t.profile.provider} failed:`, (e as Error).message);
     }
-    return await chatCloud(cfg, messages, tools, signal);
-  } catch (e) {
-    console.error('[LLM] Cloud failed:', e);
-    // Fallback: облако недоступно (невалидный ключ / нет сети) — пробуем локальный Ollama
-    if (await isOllamaAvailable(cfg.localUrl)) {
-      console.warn('[LLM] Falling back to local Ollama:', cfg.localModel);
-      return chatOllama(cfg, messages, tools, signal);
-    }
-    throw e;
   }
+
+  // Финальный fallback: локальный Ollama
+  if (await isOllamaAvailable(cfg.localUrl)) {
+    console.warn('[LLM] Falling back to local Ollama:', cfg.localModel);
+    return chatOllama(cfg, messages, tools, signal);
+  }
+  if (lastErr) throw lastErr;
+  throw new Error(
+    'Нет доступного LLM: Ollama не запущена и нет облачных ключей ' +
+      '(OPENAI_API_KEY / GEMINI_API_KEY / GROQ_API_KEY / OPENROUTER_API_KEY).'
+  );
 }
 
 /**
@@ -150,20 +256,40 @@ export async function chatWithToolsStream(
     }
   }
 
-  try {
-    if (cfg.cloudProvider === 'gemini') {
-      return await chatGeminiStream(cfg, messages, tools, onChunk, signal);
+  // M4: цепочка облачных провайдеров (стрим)
+  const targets = resolveCloudTargets(cfg);
+  let lastErr: unknown = null;
+  for (const t of targets) {
+    const cloudCfg: LLMConfig = {
+      ...cfg,
+      cloudProvider: t.profile.provider,
+      cloudApiKey: t.apiKey,
+      cloudBaseUrl: t.baseUrl,
+      cloudModel: t.model,
+    };
+    try {
+      const res =
+        t.profile.kind === 'gemini'
+          ? await chatGeminiStream(cloudCfg, messages, tools, onChunk, signal)
+          : await chatCloudStream(cloudCfg, messages, tools, onChunk, signal);
+      console.log(`[LLM] Cloud stream OK: ${t.profile.provider} (${t.model})`);
+      return res;
+    } catch (e) {
+      lastErr = e;
+      console.warn(`[LLM] Cloud stream ${t.profile.provider} failed:`, (e as Error).message);
     }
-    return await chatCloudStream(cfg, messages, tools, onChunk, signal);
-  } catch (e) {
-    console.error('[LLM] Cloud stream failed:', e);
-    // Fallback: облако недоступно — пробуем локальный Ollama (стрим)
-    if (await isOllamaAvailable(cfg.localUrl)) {
-      console.warn('[LLM] Falling back to local Ollama stream:', cfg.localModel);
-      return chatOllamaStream(cfg, messages, tools, onChunk, signal);
-    }
-    throw e;
   }
+
+  // Финальный fallback: локальный Ollama (стрим)
+  if (await isOllamaAvailable(cfg.localUrl)) {
+    console.warn('[LLM] Falling back to local Ollama stream:', cfg.localModel);
+    return chatOllamaStream(cfg, messages, tools, onChunk, signal);
+  }
+  if (lastErr) throw lastErr;
+  throw new Error(
+    'Нет доступного LLM (stream): Ollama не запущена и нет облачных ключей ' +
+      '(OPENAI_API_KEY / GEMINI_API_KEY / GROQ_API_KEY / OPENROUTER_API_KEY).'
+  );
 }
 
 export type StreamChunk =
@@ -183,8 +309,7 @@ async function chatOllama(cfg: LLMConfig, messages: ChatMessage[], tools: any[],
   const body: any = {
     model: cfg.localModel,
     messages: messages.map((m) => ({ role: m.role, content: m.content, tool_calls: m.tool_calls, tool_call_id: m.tool_call_id })),
-    options: { num_ctx: optimalCtx },
-    temperature: cfg.temperature,
+    options: { num_ctx: optimalCtx, num_predict: cfg.maxTokens, temperature: cfg.temperature },
     stream: false,
     // keep_alive: простой > keep_alive минут → Ollama сам выгрузит модель из VRAM.
     // Это даёт локальный VRAM-gate без отдельного gaming-детекта: пока играешь/кодишь,
@@ -246,8 +371,7 @@ async function chatOllamaStream(
   const body: any = {
     model: cfg.localModel,
     messages: messages.map((m) => ({ role: m.role, content: m.content, tool_calls: m.tool_calls, tool_call_id: m.tool_call_id })),
-    options: { num_ctx: optimalCtx },
-    temperature: cfg.temperature,
+    options: { num_ctx: optimalCtx, num_predict: cfg.maxTokens, temperature: cfg.temperature },
     stream: true,
     // keep_alive: VRAM-gate на простой (см. non-stream ветку)
     keep_alive: process.env.OLLAMA_KEEP_ALIVE ?? '5m',
