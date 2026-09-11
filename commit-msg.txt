@@ -1,0 +1,28 @@
+M3+M4: Graphiti memory MCP включён + честная память без фейков
+
+M3 — Graphiti MCP (темпоральный граф как долговременная память):
+- mcp-adapter.ts: DEFAULT_MCP_SERVERS → автодетект ~/graphiti-una/server.py
+  (venv-python, Ollama 127.0.0.1:11434/v1, qwen3:1.7b + nomic-embed-text,
+  DB в %SystemDrive%\Users\Public\una-graphiti, group_id=una,
+  теле метрия off). Сервер подключается автоматически при наличии server.py;
+  N+настроек не требуется.
+- scripts/apply-m3-mcp.mjs — применяемая правка (задокументирована).
+- scripts/m3-smoke-mcp.mjs — проверка MCP-канала тем же протоколом, что адаптер:
+  initialize → notifications/initialized → tools/list = 3 tools OK.
+
+M4 — честность памяти (никаких фейков, потери данных, DELETE):
+- llm.ts: новый summarizeText() — суммаризация ТОЛЬКО локальным Ollama;
+  возвращает '' при недоступности/ошибке — вызывающий код пропускает сжатие.
+- compression.ts: LLM-сводки старых бесед только когда shouldMaintainMemory();
+  promoteFrequentFacts больше НЕ сбрасывает use_count (честная статистика);
+  demoteStaleFacts → мягкое забывание markFactForget (use_count=-1), без DELETE.
+- memory/rlm.ts: summarizeOldMessages заменяет сжимаемые сообщения на [Сводка]
+  только при реальном ответе LLM; при неудаче сообщения остаются нетронутыми.
+- main.ts: env-loader.ts подключён (loadEnvFile() до инициализации конфига);
+  IPC memory:maintenance стал async + await runMaintenance().
+- life-loop.ts: await runMaintenance().
+
+Проверено: tsc -p electron/tsconfig.json (0 ошибок), vite build (0 ошибок),
+pre-build-check.js (0 ошибок). MCP smoke: initialize+tools/list OK (3 tools).
+Ollama-зависимые вызовы graphiti (memory_add/search) не гонялись — уже проверены ранее;
+модель не грузили специально (ресурсы).

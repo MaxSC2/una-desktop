@@ -1,10 +1,24 @@
-import { listFacts, saveFact, getDb } from '../memory/store';
+import { getDb, markFactForget } from '../memory/store';
+import { summarizeText } from './llm';
+import { shouldMaintainMemory } from './resource-manager';
 
-export function compressOldConversations(): number {
+/**
+ * M4: честная сборка памяти.
+ *
+ * 1. Суммаризация старых бесед — ТОЛЬКО когда система простаивает и ресурсы позволяют,
+ *    и только если LLM реально вернул сводку (иначе пропускаем — никаких псевдо-сводок из обрезков).
+ *
+ * 2. Часто используемые факты повышаем до «предпочтения», но use_count НЕ сбрасываем —
+ *    это честная статистика использования, а не демо-промоушен.
+ *
+ * 3. Устаревшие факты — мягкое забывание (markFactForget: use_count = -1; никаких DELETE).
+ */
+
+export async function compressOldConversations(): Promise<number> {
   const db = getDb();
   if (!db) return 0;
 
-  // Find conversations older than 7 days without a summary
+  // Старые беседы (старше 7 дней, без summary).
   const oldConvs = db.prepare(`
     SELECT c.id, c.summary,
       (SELECT COUNT(*) FROM messages WHERE conversation_id = c.id) as msg_count
@@ -18,27 +32,45 @@ export function compressOldConversations(): number {
 
   if (oldConvs.length === 0) return 0;
 
+  // LLM-суммаризация — только в простое и при свободных ресурсах.
+  if (!shouldMaintainMemory()) {
+    console.log(`[Memory] Skipping ${oldConvs.length} old conversation(s): LLM summarization requires idle/resources`);
+    return 0;
+  }
+
   let compressed = 0;
   for (const conv of oldConvs) {
-    // Get first and last messages as a minimal summary
-    const msgs = db.prepare(`
-      SELECT role, content FROM messages
+    // Первые 3 и последние 3 сообщения — честный контекст для сводки (БД не трогаем!).
+    const firstMsgs = db.prepare(`
+      SELECT id, role, content FROM messages
       WHERE conversation_id = ?
-      ORDER BY timestamp ASC
+      ORDER BY timestamp ASC, id ASC
       LIMIT 3
-    `).all(conv.id) as Array<{ role: string; content: string }>;
-
-    const lastMsg = db.prepare(`
-      SELECT content FROM messages
+    `).all(conv.id) as Array<{ id: number; role: string; content: string }>;
+    const lastMsgs = db.prepare(`
+      SELECT id, role, content FROM messages
       WHERE conversation_id = ?
-      ORDER BY timestamp DESC
-      LIMIT 1
-    `).get(conv.id) as { content: string } | undefined;
+      ORDER BY timestamp DESC, id DESC
+      LIMIT 3
+    `).all(conv.id) as Array<{ id: number; role: string; content: string }>;
 
-    if (msgs.length > 0) {
-      const summary = `Беседа (${conv.msg_count} сообщений). Начало: ${msgs[0]?.content?.slice(0, 100)}. Конец: ${lastMsg?.content?.slice(0, 100)}`;
-      db.prepare(`UPDATE conversations SET summary = ? WHERE id = ?`).run(summary, conv.id);
+    const seen = new Set<number>();
+    const sampleParts: string[] = [];
+    for (const m of [...firstMsgs, ...lastMsgs]) {
+      const id = m.id as number;
+      if (seen.has(id)) continue;
+      seen.add(id);
+      sampleParts.push(`${m.role}: ${m.content.slice(0, 800)}`);
+    }
+    const sample = sampleParts.join('\n');
+    if (!sample.trim()) continue;
+
+    const summary = await summarizeText(sample, { maxInputChars: 12000 });
+    if (summary.trim().length > 0) {
+      db.prepare(`UPDATE conversations SET summary = ? WHERE id = ?`).run(summary.trim(), conv.id);
       compressed++;
+    } else {
+      console.warn(`[Memory] Conversation #${conv.id} not summarized (LLM unavailable/failed) — messages kept intact`);
     }
   }
 
@@ -49,7 +81,8 @@ export function promoteFrequentFacts(): number {
   const db = getDb();
   if (!db) return 0;
 
-  // Find facts used >5 times, promote by updating their category
+  // Часто используемые факты (>=5 использований) — честное повышение важности:
+  // категория → preference, НО use_count сохраняется (реальная статистика).
   const frequent = db.prepare(`
     SELECT id, content, category, use_count FROM facts
     WHERE use_count >= 5 AND category = 'user'
@@ -59,8 +92,7 @@ export function promoteFrequentFacts(): number {
 
   let promoted = 0;
   for (const fact of frequent) {
-    // Promote to 'preference' — this is highly used info
-    db.prepare(`UPDATE facts SET category = 'preference', use_count = 0 WHERE id = ?`).run(fact.id);
+    db.prepare(`UPDATE facts SET category = 'preference' WHERE id = ?`).run(fact.id);
     promoted++;
   }
 
@@ -71,7 +103,9 @@ export function demoteStaleFacts(): number {
   const db = getDb();
   if (!db) return 0;
 
-  // Find facts unused for >30 days with <3 uses
+  // Устаревшие факты (не использовались 30+ дней, <3 использований) —
+  // мягкое забывание через markFactForget (use_count = -1): факт прячется из top-N,
+  // но не уничтожается безвозвратно. Защищённые категории не трогаем.
   const stale = db.prepare(`
     SELECT id, content, category FROM facts
     WHERE (last_used IS NULL OR last_used < datetime('now', '-30 days'))
@@ -82,16 +116,15 @@ export function demoteStaleFacts(): number {
 
   let demoted = 0;
   for (const fact of stale) {
-    // Mark as forget
-    db.prepare(`DELETE FROM facts WHERE id = ?`).run(fact.id);
+    markFactForget(fact.id);
     demoted++;
   }
 
   return demoted;
 }
 
-export function runMaintenance(): { compressed: number; promoted: number; demoted: number } {
-  const compressed = compressOldConversations();
+export async function runMaintenance(): Promise<{ compressed: number; promoted: number; demoted: number }> {
+  const compressed = await compressOldConversations();
   const promoted = promoteFrequentFacts();
   const demoted = demoteStaleFacts();
   return { compressed, promoted, demoted };

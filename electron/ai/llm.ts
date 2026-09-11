@@ -171,6 +171,60 @@ export async function listOllamaModels(url: string = getLLMConfig().localUrl): P
 }
 
 /**
+ * Честная суммаризация текста локальной моделью (Ollama).
+ *
+ * Возвращает '' если Ollama недоступна или запрос не удался —
+ * вызывающий код ДОЛЖЕН пропустить сжатие, а не фабриковать краткое содержание.
+ */
+export async function summarizeText(
+  text: string,
+  options?: { maxInputChars?: number; temperature?: number }
+): Promise<string> {
+  const cfg = getLLMConfig();
+  // Только локальный Ollama — бесплатно, приватно, без неожиданных облачных расходов.
+  if (cfg.provider !== 'local' && cfg.provider !== 'auto') return '';
+
+  const available = await isOllamaAvailable(cfg.localUrl);
+  if (!available) return '';
+
+  const maxInputChars = options?.maxInputChars ?? 12000;
+  const truncated = text.length > maxInputChars
+    ? text.slice(0, maxInputChars) + '\n…'
+    : text;
+
+  try {
+    const resp = await fetch(`${cfg.localUrl}/api/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: cfg.localModel,
+        messages: [
+          {
+            role: 'system',
+            content:
+              'Ты — система сжатия долговременной памяти. Сократи переписку до краткого резюме на русском: ' +
+              'ключевые факты, решения, предпочтения пользователя. 3–7 предложений, без воды и нумерации. ' +
+              'Если контента мало — верни 1–2 предложения.',
+          },
+          { role: 'user', content: truncated },
+        ],
+        stream: false,
+        options: { temperature: options?.temperature ?? 0.2, num_predict: 300 },
+      }),
+      signal: AbortSignal.timeout(90000),
+    });
+    const data = (await resp.json()) as { message?: { content?: string }; error?: string };
+    if (data.error) throw new Error(data.error);
+    const content = (data.message?.content ?? '').trim();
+    return content.length > 20 ? content : '';
+  } catch (e) {
+    console.warn(`[LLM] summarizeText failed: ${(e as Error).message}`);
+    return '';
+  }
+}
+
+
+/**
  * Главный метод — чат с tools.
  */
 export async function chatWithTools(

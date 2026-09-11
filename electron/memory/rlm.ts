@@ -13,6 +13,7 @@
 import { recallFacts, saveFact, Fact, listPods, getPodByName, createPod, incrementPodUse, markFactForget as storeMarkFactForget, setFactImportance as storeSetFactImportance, listFacts } from './store';
 import { getRelatedFacts } from './knowledge-graph';
 import { findRelevantPods, classifyToPod } from './pods';
+import { summarizeText } from '../ai/llm';
 import { getMemoryConfig } from '../ai/config';
 import { getOptimalContextTokens } from '../ai/resource-manager';
 
@@ -498,23 +499,30 @@ async function setFactImportance(factId: number, level: string): Promise<void> {
 // ============================================================
 
 /**
- * Summarize old messages to save context space.
- * This is a placeholder — actual summarization would use LLM.
+ * Честная суммаризация: только если LLM реально доступен.
+ *
+ * Если сжать не удалось — сообщения остаются нетронутыми (без потери данных,
+ * без псевдо-сводок из обрезков текста).
  */
 async function summarizeOldMessages(n: number): Promise<string> {
+  if (n <= 0) return '';
   const messages = warmCacheGetMessages(n);
   if (messages.length === 0) return '';
 
-  // Create a simple summary (in production, would use LLM for this)
-  const summary = messages
-    .map((m) => `${m.role}: ${m.content.slice(0, 100)}`)
-    .join(' | ');
+  const text = messages.map((m) => `${m.role}: ${m.content}`).join('\n');
+  const summary = await summarizeText(text, { maxInputChars: 8000 });
+  if (summary.trim().length > 0) {
+    // Заменяем сжатые сообщения одним компактным резюме — не выбрасываем данные.
+    const kept = warmCache.messages.slice(0, -n);
+    warmCache.messages = [...kept, { role: 'system' as const, content: `[Сводка] ${summary.trim()}`, timestamp: new Date().toISOString() }];
+    return summary.trim();
+  }
 
-  // Clear summarized messages from warm cache
-  warmCache.messages = warmCache.messages.slice(n);
-
-  return summary;
+  // LLM недоступен/не удалось — ничего не трогаем. Не фабрикуем псевдо-сводку.
+  console.warn(`[RLM] summarize skipped: LLM unavailable/failed (${n} messages retained)`);
+  return '';
 }
+
 
 // ============================================================
 // SYSTEM PROMPT WITH MEMORY INSTRUCTIONS

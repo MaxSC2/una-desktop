@@ -10,6 +10,9 @@
  */
 
 import { ChildProcess, spawn } from 'child_process';
+import * as os from 'os';
+import * as fs from 'fs';
+import * as path from 'path';
 import { ToolContext, ToolResult } from '../tools/helpers';
 
 export interface MCPServerConfig {
@@ -210,7 +213,8 @@ export class MCPAdapter {
       }
       // send передаётся как 4-й аргумент: listener навешивается ДО записи в stdin,
       // чтобы не потерять мгновенный ответ сервера (без гонки).
-      await this.waitForResponse(child, requestId, 30000, () => {
+      // ВАЖНО: возвращаем результат — иначе tools/list и tools/call всегда undefined.
+      return await this.waitForResponse(child, requestId, 30000, () => {
         child.stdin?.write(request + '\n');
       });
     } else if (entry.config.transport === 'http' && entry.config.url) {
@@ -374,36 +378,35 @@ export const mcpAdapter = new MCPAdapter();
 // ============================================================
 
 export const DEFAULT_MCP_SERVERS: MCPServerConfig[] = [
-  // Graphiti-una — темпоральный граф знаний как долговременная память U.N.A.
-  // (https://github.com/getzep/graphiti). Требует запущенный Graphiti MCP-сервер:
-  //   git clone https://github.com/getzep/graphiti.git
-  //   cd graphiti/mcp_server && uv sync && uv run main.py --group-id una
-  //   (env: OPENAI_BASE_URL=http://localhost:11434/v1, MODEL_NAME=qwen3:4b,
-  //    OPENAI_API_KEY=ollama, GRAPHITI_TELEMETRY_ENABLED=false)
-  // Полная инструкция: docs/GRAPHITI_MEMORY.md
-  // {
-  //   name: 'graphiti-memory',
-  //   transport: 'stdio',
-  //   command: 'npx',
-  //   args: ['-y', 'mcp-remote', 'http://localhost:8000/mcp/'],
-  //   env: { GRAPHITI_TELEMETRY_ENABLED: 'false' },
-  //   enabled: false,  // ← поставьте true после запуска сервера
-  // },
-  // Примеры — раскомментируйте и настройте при необходимости
-  // {
-  //   name: 'github',
-  //   transport: 'stdio',
-  //   command: 'npx',
-  //   args: ['-y', '@modelcontextprotocol/server-github'],
-  //   env: { GITHUB_TOKEN: process.env.GITHUB_TOKEN ?? '' },
-  //   enabled: false,
-  // },
-  // {
-  //   name: 'filesystem',
-  //   transport: 'stdio',
-  //   command: 'npx',
-  //   args: ['-y', '@modelcontextprotocol/server-filesystem', require('os').homedir()],
-  //   enabled: false,
-  // },
+  // Graphiti-una — долговременная память U.N.A. (темпоральный граф знаний).
+  // Автообнаружение: сервер считается установленным, если есть ~/graphiti-una/server.py.
+  // Venv-питон предпочитается системному. БД — %SystemDrive%\\Users\\Public\\una-graphiti.
+  ...(() => {
+    const serverPy = path.join(os.homedir(), 'graphiti-una', 'server.py');
+    if (!fs.existsSync(serverPy)) return [];
+
+    const venvPy = path.join(os.homedir(), 'graphiti-una', '.venv', 'Scripts', 'python.exe');
+    const py = fs.existsSync(venvPy) ? venvPy : 'python';
+
+    console.log(`[MCP] Graphiti memory server found: ${serverPy}`);
+    return [
+      {
+        name: 'graphiti-memory',
+        transport: 'stdio' as const,
+        command: py,
+        args: [serverPy],
+        env: {
+          OPENAI_BASE_URL: 'http://127.0.0.1:11434/v1',
+          OPENAI_API_KEY: 'ollama',
+          MODEL_NAME: 'qwen3:1.7b',
+          EMBEDDER_MODEL: 'nomic-embed-text',
+          GRAPHITI_DB_PATH: path.join('C:', 'Users', 'Public', 'una-graphiti', 'una-graph.kz'),
+          GRAPHITI_GROUP_ID: 'una',
+          GRAPHITI_TELEMETRY_ENABLED: 'false',
+        },
+        enabled: true,
+      },
+    ];
+  })(),
 ];
 

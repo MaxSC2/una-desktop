@@ -13,6 +13,7 @@
 import { app, BrowserWindow, Tray, Menu, globalShortcut, ipcMain, desktopCapturer, nativeImage, shell, Notification } from 'electron';
 import * as path from 'path';
 import { autoUpdater } from 'electron-updater';
+import { loadEnvFile } from './ai/env-loader';
 import { initMemory, closeMemory, startConversation, saveMessage, getRecentMessages, saveFact, recallFacts, saveEmotion, getLastEmotion, listFacts } from './memory/store';
 import { addRelation, getRelatedFacts, getRelationStats, removeRelation, autoLinkFacts } from './memory/knowledge-graph';
 import { exportBackup, importBackup } from './data/backup';
@@ -51,6 +52,7 @@ let overlayWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 
 // Единый store из config.ts — больше не создаём дублирующий
+loadEnvFile();
 const configStore = getConfigStore();
 
 let activeAbortController: AbortController | null = null;
@@ -790,8 +792,8 @@ function registerIpcHandlers(): void {
   });
 
   // Memory Compression
-  ipcMain.handle('memory:maintenance', () => {
-    return runMaintenance();
+  ipcMain.handle('memory:maintenance', async () => {
+    return await runMaintenance();
   });
 
   // Self Review

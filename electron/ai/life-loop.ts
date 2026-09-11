@@ -133,7 +133,7 @@ async function tick(getMainWindow: () => BrowserWindow | null): Promise<void> {
     if ((unaState === 'night' || unaState === 'idle') && canRunTask('maintenance', resource)) {
       const minutesSinceMaintenance = (Date.now() - lastMaintenanceRun) / 60000;
       if (minutesSinceMaintenance > 60) {
-        const result = runMaintenance();
+        const result = await runMaintenance();
         lastMaintenanceRun = Date.now();
         if (result.compressed > 0 || result.promoted > 0 || result.demoted > 0) {
           cycle.memoryUpdates.push(
