@@ -58,3 +58,16 @@
 - решение по шкалам: M1–M6 — архивные ревизии (включая найденную m5 `e9c222b`), фазы — Phase 0–5 (DEC-009)
 - Phase 0: **STATUS: VERIFIED** — фиксируется хэшем коммита этой записи
 - DEC-011: GitHub — оперативная память проекта; правило «decision-log → implementation-map → JOURNAL → commit → push»
+
+---
+
+**Phase 1 / Pass 1 remainder — P1-1 (миграционные тесты M6):**
+- новый `tests/memory/migration.test.ts` (6 тестов): fresh DB (таблицы + external-content FTS + триггеры), legacy-апгрейд старой БД (plain FTS5 → external-content, факты и use_count сохранены, M6-колонки добавлены), v30-регрессия (delete мигрированного факта не роняет FTS), restart (close+init и двойной init без close), триггеры insert/update/delete с прямой проверкой `facts_fts`
+- прод-код не тронут (tests-only); старый `initMemory()` прошёл все сценарии без изменений
+- пробел implementation-map №1 закрыт
+
+**Проверки:** tsc electron 0 · tsc renderer 0 · vitest 240/240 (12 файлов) · `npm run build` ✓ (0 errors, 2 warning — старые, robotjs optional)
+
+**Коммит:** `test(memory): P1-1 миграционные тесты M6 — старая БД, рестарт, FTS`
+
+**Дальше:** P1-2 injection-фикстуры (`tests/safety/indirect-injection.test.ts`) — по scope ждёт своей очереди.

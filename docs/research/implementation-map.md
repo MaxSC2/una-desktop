@@ -7,7 +7,7 @@
 
 **Статусы:** `VERIFIED` (работает, покрыто проверками) · `IMPLEMENTED` (в runtime, но без собственных тестов/E2E — пробел указан) · `NOT WIRED` (код есть, в runtime не подключён) · `PLANNED` (в backlog, не начато) · `RESEARCHED` (изучено, решения нет) · `REJECTED`.
 
-**Последняя верификация:** 2026-09-15 — tsc 0 (electron+renderer), vitest 234/234 (11 файлов), `npm run build` ✓. Коммиты среза: `e9c222b`(m5) → `91be822` → `13e667f`(m6) → `52111f7` → `03101a3`.
+**Последняя верификация:** 2026-09-15 — tsc 0 (electron+renderer), vitest 240/240 (12 файлов), `npm run build` ✓. Коммиты среза: `e9c222b`(m5) → `91be822` → `13e667f`(m6) → `52111f7` → `03101a3` → P1-1 (migration.test.ts, +6).
 
 **Правила обновления:** статус меняется только при новом Evidence (прогон тестов, новый коммит, wiring). При сомнении — статус ниже по лестнице. Поле «Пробелы → шаг» — вход в JOURNAL/бэклог.
 
@@ -27,9 +27,9 @@
 
 | Компонент | Статус | Evidence | Файлы | Коммит/этап | Пробелы → шаг |
 |---|---|---|---|---|---|
-| SQLite + FTS5 core | VERIFIED | миграции колонок; store.test.ts | memory/store.ts | — | сценарии миграции старой БД — PLANNED (Pass 1) |
+| SQLite + FTS5 core | VERIFIED | миграции колонок; store.test.ts; migration.test.ts (6: fresh/legacy/restart/триггеры) | memory/store.ts | — | закрыто (P1-1) |
 | RLM (memory tokens) | VERIFIED | rlm.test.ts; parseMemoryTokens/executeMemoryTokens в tool-loop | memory/rlm.ts | M4 | — |
-| Memory Manager (скоринг-гейт, maintenance, elevate) | VERIFIED | manager.test.ts (13); wired в main.ts + tool-loop | memory/manager.ts | M6 (`13e667f`) | миграционные тесты — PLANNED |
+| Memory Manager (скоринг-гейт, maintenance, elevate) | VERIFIED | manager.test.ts (13); wired в main.ts + tool-loop | memory/manager.ts | M6 (`13e667f`) | миграционные тесты — закрыто (P1-1, migration.test.ts) |
 | Graphiti L2 (MCP) | VERIFIED (протокол) | mcp-adapter в main.ts; m3-smoke = 3 tools | ai/mcp-adapter.ts, docs/GRAPHITI_MEMORY.md | M3 | end-to-end recall не подтверждён |
 ## Безопасность
 
@@ -88,7 +88,7 @@
 
 ### Известные системные пробелы (сводка)
 
-1. Миграционные тесты M6 (старая БД → апгрейд, повторный старт, FTS) — Pass 1.
+1. ~~Миграционные тесты M6 (старая БД → апгрейд, повторный старт, FTS) — Pass 1.~~ → **решено (P1-1):** `tests/memory/migration.test.ts` (6 тестов: fresh, legacy-апгрейд с сохранением фактов, v30-регрессия delete, 2× restart, триггеры insert/update/delete).
 2. Injection-фикстуры для web/file/MCP — Pass 1.
 3. Graphiti end-to-end recall — после Pass 1.
 4. Мёртвый узел agents/autonomous-loop/skills — решение о маршрутизации (DEC-008 блокирует до Pass 2).

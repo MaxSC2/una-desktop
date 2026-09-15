@@ -26,7 +26,7 @@
 |----------|---------|-----------|
 | TypeScript (electron) | `tsc -p electron/tsconfig.json --noEmit` | ✅ 0 ошибок |
 | TypeScript (renderer) | `tsc -p tsconfig.json --noEmit` | ✅ 0 ошибок |
-| Тесты | `vitest run` | ✅ 234 / 234 pass |
+| Тесты | `vitest run` | ✅ 240 / 240 pass |
 | Сборка рендерера | `vite build` | ✅ собирается (1.45 MB JS, warning про размер чанка) |
 | Инструменты | `ls electron/tools/definitions` | 25 инструментов |
 | Манифест файлов | `node scripts/verify-manifest.js` | ✅ 252/252 на месте, 0 пропущено, 0 лишних |
@@ -43,7 +43,7 @@
 |-----------|--------|---------|
 | TypeScript компиляция | ✅ 0 errors | electron + renderer |
 | Vite build | ✅ | 1.28 MB JS (с syntax highlighter + Rive) |
-| 234 теста | ✅ все pass | tools, safety, memory-manager, router, confirmation |
+| 240 тестов | ✅ все pass | tools, safety, memory-manager, router, confirmation, migration |
 | Electron entry point | ✅ | `dist-electron/electron/main.js` |
 | npm install | ✅ | с `--legacy-peer-deps` |
 | Pre-build validation | ✅ | `scripts/pre-build-check.js` |

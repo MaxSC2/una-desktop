@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>U.N.A. Presence Prototype A1–A3</title>
+<link rel="stylesheet" href="prototype.css">
+</head>
+<body data-state="idle" data-zone="center">
+
+<!-- SPACE layer 0: фон (3 слоя по токенам v0.1) -->
+<div class="space-bg" aria-hidden="true">
+  <div class="space-bg-violet"></div>
+  <div class="space-bg-cyan"></div>
+  <div class="space-bg-vignette"></div>
+</div>
+
+<div class="stage" id="stage">
+  <!-- Header: INFORMATION (не touchable, Space-подпись) -->
+  <header class="hud-header">
+    <span class="hud-logo">U.N.A.</span>
+    <span class="hud-right">
+      <span class="hud-clock" id="clock">09:12</span>
+      <span class="hud-state"><span class="hud-dot" id="stateDot"></span><span id="stateLabel">ACTIVE</span></span>
+    </span>
+  </header>
+
+  <!-- Living Stage -->
+  <main class="living-stage">
+    <!-- REACTION: Avatar Slot (один бокс, зоны через transform) -->
+    <div class="avatar-slot" id="avatarSlot" aria-hidden="true">
+      <div class="avatar-glow" id="avatarGlow"></div>
+      <div class="avatar-core">
+        <div class="avatar-diamond" id="avatarDiamond"></div>
+        <div class="avatar-voice" id="voiceBars" hidden>
+          <span></span><span></span><span></span>
+        </div>
+        <div class="avatar-name">ЮНА</div>
+      </div>
+    </div>
+
+    <!-- REACTION: presence line (одна строка, голос Юны) -->
+    <p class="presence-line" id="presenceLine" aria-live="polite">Я рядом. Чем займёмся?</p>
+
+    <!-- Нижняя часть сцены: strip + pocket -->
+    <div class="stage-bottom">
+      <!-- INFORMATION: conversation strip -->
+      <section class="strip" aria-label="Диалог">
+        <div class="strip-messages" id="stripMessages"></div>
+      </section>
+
+      <!-- INFORMATION: activity pocket (один, APPEAR только в WORKING) -->
+      <aside class="pocket" id="pocket" hidden aria-label="Текущая задача">
+        <div class="pocket-head">
+          <span class="pocket-title" id="pocketTitle">Делаю: чистка /tmp</span>
+          <span class="pocket-step" id="pocketStep">шаг 2/4</span>
+        </div>
+        <div class="pocket-progress"><div class="pocket-progress-fill" id="pocketProgress"></div></div>
+        <ul class="pocket-steps" id="pocketSteps"></ul>
+        <div class="pocket-foot">
+          <button class="pocket-log-toggle" id="logToggle" type="button">лог ▾</button>
+          <button class="pocket-stop" id="pocketStop" type="button">■ остановить</button>
+        </div>
+        <pre class="pocket-log" id="pocketLog" hidden></pre>
+      </aside>
+      <div class="pocket-edge" id="pocketEdge" aria-hidden="true"></div>
+    </div>
+  </main>
+
+  <!-- Dock: INFORMATION (touchable: TABS, MIC, INPUT, STOP) -->
+  <footer class="dock">
+    <nav class="dock-tabs" aria-label="Панели">
+      <button type="button" class="dock-tab is-active">Chat</button>
+      <button type="button" class="dock-tab">Tasks</button>
+      <button type="button" class="dock-tab">Memory</button>
+      <button type="button" class="dock-tab">System</button>
+    </nav>
+    <button class="dock-mic" id="micBtn" type="button" aria-label="Голосовой ввод">🎙</button>
+    <button class="dock-stop" id="stopBtn" type="button" hidden>■</button>
+    <input class="dock-input" id="dockInput" type="text" placeholder="Написать Юне…" aria-label="Написать Юне">
+    <button class="dock-send" id="sendBtn" type="button">➤</button>
+  </footer>
+
+  <!-- Панель сценария прототипа (не часть дизайна, только управление демо) -->
+  <div class="demo-bar" aria-label="Управление сценарием прототипа">
+    <span class="demo-title">A1–A3:</span>
+    <button type="button" data-demo="idle">A1 IDLE</button>
+    <button type="button" data-demo="speaking">A2 SPEAKING</button>
+    <button type="button" data-demo="working">A3 WORKING</button>
+    <button type="button" data-demo="done">Готово → IDLE</button>
+  </div>
+</div>
+
+<script src="prototype.js"></script>
+</body>
+</html>

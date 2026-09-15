@@ -1,0 +1,224 @@
+/* U.N.A. Presence Prototype A1–A3 — база и SPACE.
+   Примитивы: BREATHE, LEAN, SHIFT, APPEAR, GLOW, DIM.
+   Запрещены: bounce, rotation, particles, parallax. */
+
+:root {
+  --una-bg: #0a0e1a;
+  --una-surface: rgba(15, 23, 42, 0.6);
+  --una-border: rgba(168, 85, 247, 0.20);
+  --presence-idle: #a855f7;
+  --presence-active: #c084fc;
+  --presence-success: #4ade80;
+  --presence-voice: #22d3ee;
+  --ink: #e2e8f0;
+  --ink-dim: #94a3b8;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0; padding: 0; height: 100%;
+  background: var(--una-bg); color: var(--ink);
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  overflow: hidden;
+}
+
+/* SPACE layer 0: фон, 3 слоя по токенам v0.1 */
+.space-bg { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+.space-bg-violet {
+  position: absolute; inset: 0;
+  background: radial-gradient(circle at 20% 20%, rgba(168,85,247,0.12), transparent 50%);
+}
+.space-bg-cyan {
+  position: absolute; inset: 0;
+  background: radial-gradient(circle at 80% 80%, rgba(34,211,238,0.06), transparent 50%);
+}
+.space-bg-vignette {
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.55) 100%);
+}
+
+.stage {
+  position: relative; z-index: 1;
+  display: flex; flex-direction: column;
+  height: 100vh; max-width: 1100px; margin: 0 auto;
+}
+
+/* Header: INFORMATION (Space-подпись, не touchable) */
+.hud-header {
+  display: flex; justify-content: space-between; align-items: center;
+  height: 40px; padding: 0 16px; flex: none;
+  font-family: 'JetBrains Mono', Consolas, monospace;
+  font-size: 12px; letter-spacing: 0.15em;
+  color: var(--ink-dim);
+  border-bottom: 1px solid var(--una-border);
+}
+.hud-state { display: inline-flex; align-items: center; gap: 6px; margin-left: 16px; }
+.hud-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--presence-idle);
+  transition: background 600ms ease; /* GLOW */
+}
+
+.living-stage {
+  flex: 1; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 12px; padding: 16px; min-height: 0;
+}
+
+/* REACTION: Avatar Slot — один бокс, зоны через transform */
+.avatar-slot {
+  position: relative; width: 220px; height: 220px; flex: none;
+  display: flex; align-items: center; justify-content: center;
+  transition: transform 500ms ease-in-out, opacity 500ms ease-in-out; /* SHIFT */
+}
+body[data-zone="right"] .avatar-slot { transform: translateX(220px); }
+
+.avatar-glow {
+  position: absolute; inset: 0; border-radius: 50%;
+  background: radial-gradient(circle, rgba(168,85,247,0.35) 0%, rgba(168,85,247,0.10) 45%, transparent 70%);
+  transition: background 600ms ease; /* GLOW */
+  animation: breathe 4s ease-in-out infinite; /* BREATHE */
+}
+body[data-state="speaking"] .avatar-glow {
+  background: radial-gradient(circle, rgba(192,132,252,0.55) 0%, rgba(192,132,252,0.18) 45%, transparent 70%);
+}
+body[data-state="working"] .avatar-glow {
+  background: radial-gradient(circle, rgba(192,132,252,0.50) 0%, rgba(192,132,252,0.15) 45%, transparent 70%);
+}
+body[data-state="happy"] .avatar-glow {
+  background: radial-gradient(circle, rgba(74,222,128,0.45) 0%, rgba(74,222,128,0.12) 45%, transparent 70%);
+}
+
+@keyframes breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.03); } }
+
+.avatar-core { position: relative; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.avatar-diamond {
+  width: 54px; height: 54px;
+  background: linear-gradient(135deg, var(--presence-active), var(--presence-idle));
+  transform: rotate(45deg);
+  border-radius: 10px;
+  box-shadow: 0 0 24px rgba(168,85,247,0.55);
+  animation: lean 3s ease-in-out infinite; /* LEAN */
+}
+@keyframes lean { 0%, 100% { margin-left: -4px; } 50% { margin-left: 4px; } }
+.avatar-name {
+  font-family: 'JetBrains Mono', Consolas, monospace;
+  font-size: 11px; letter-spacing: 0.3em; color: var(--ink-dim);
+}
+
+/* Voice indicator: часть слота, не модели */
+.avatar-voice { display: flex; gap: 3px; align-items: flex-end; height: 14px; }
+.avatar-voice span { width: 3px; background: var(--presence-voice); border-radius: 2px; animation: voice 0.9s ease-in-out infinite; }
+.avatar-voice span:nth-child(2) { animation-delay: 0.15s; }
+.avatar-voice span:nth-child(3) { animation-delay: 0.3s; }
+@keyframes voice { 0%, 100% { height: 5px; } 50% { height: 14px; } }
+
+/* REACTION: presence line */
+.presence-line {
+  margin: 0; min-height: 1.5em; text-align: center;
+  font-size: 17px; font-style: italic; color: var(--ink);
+  animation: appear 400ms ease; /* APPEAR */
+}
+/* Нижняя часть сцены: strip + pocket */
+.stage-bottom {
+  display: flex; gap: 12px; width: 100%; max-height: 40%;
+  align-items: stretch; justify-content: center;
+}
+
+/* INFORMATION: conversation strip */
+.strip {
+  flex: 1; max-width: 560px; min-width: 0;
+  background: var(--una-surface);
+  border: 1px solid var(--una-border); border-radius: 10px;
+  padding: 10px 12px; overflow-y: auto;
+}
+.strip-messages { display: flex; flex-direction: column; gap: 8px; font-size: 13px; line-height: 1.45; }
+.msg { margin: 0; animation: appear 400ms ease; }
+.msg-user { color: var(--ink-dim); }
+.msg-yuna { color: var(--ink); }
+.msg-think {
+  border: 1px solid rgba(251,191,36,0.25); border-radius: 8px;
+  padding: 6px 8px; font-size: 11px; color: rgba(252,211,77,0.8);
+  font-family: 'JetBrains Mono', Consolas, monospace;
+}
+.msg-stream-cursor::after { content: '▌'; color: var(--presence-active); animation: blink 1s steps(2) infinite; }
+body[data-state="working"] .strip { opacity: 0.75; }
+
+/* INFORMATION: activity pocket (один, APPEAR только в WORKING) */
+.pocket {
+  width: 260px; flex: none;
+  background: var(--una-surface);
+  border: 1px solid var(--una-border); border-radius: 10px;
+  padding: 10px 12px; font-size: 12px;
+  animation: appear 400ms ease;
+}
+.pocket[hidden] { display: none; }
+.pocket-head { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.pocket-title { color: var(--ink); }
+.pocket-step { color: var(--ink-dim); font-family: 'JetBrains Mono', Consolas, monospace; font-size: 11px; }
+.pocket-progress { height: 4px; border-radius: 2px; background: rgba(148,163,184,0.2); margin-bottom: 8px; }
+.pocket-progress-fill { height: 100%; width: 0; border-radius: 2px; background: var(--presence-active); transition: width 500ms ease; }
+.pocket-steps { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.pocket-steps li { color: var(--ink-dim); font-family: 'JetBrains Mono', Consolas, monospace; font-size: 11px; }
+.pocket-steps li.done { color: var(--presence-success); }
+.pocket-steps li.current { color: var(--ink); animation: blink 1.5s ease-in-out infinite; }
+.pocket-foot { display: flex; justify-content: space-between; gap: 8px; }
+.pocket-foot button {
+  background: transparent; border: 1px solid var(--una-border); border-radius: 6px;
+  color: var(--ink-dim); font-size: 11px; padding: 4px 8px; cursor: pointer;
+  font-family: 'JetBrains Mono', Consolas, monospace;
+}
+.pocket-foot button:hover { color: var(--ink); border-color: var(--presence-idle); }
+.pocket-log {
+  margin: 8px 0 0; padding: 8px; font-size: 10px; color: var(--ink-dim);
+  background: rgba(0,0,0,0.35); border-radius: 6px; white-space: pre-wrap;
+  font-family: 'JetBrains Mono', Consolas, monospace; max-height: 90px; overflow-y: auto;
+}
+.pocket-edge { width: 8px; flex: none; border-radius: 4px; background: rgba(168,85,247,0.15); }
+body[data-state="working"] .pocket-edge { display: none; }
+
+/* Dock: INFORMATION (touchable TABS/MIC/INPUT/STOP) */
+.dock {
+  display: flex; gap: 8px; align-items: center;
+  padding: 10px 16px; flex: none;
+  border-top: 1px solid var(--una-border);
+}
+.dock-tabs { display: flex; gap: 4px; }
+.dock-tab {
+  background: transparent; border: 1px solid transparent; border-radius: 6px;
+  color: var(--ink-dim); font-size: 12px; padding: 6px 10px; cursor: pointer;
+}
+.dock-tab.is-active { color: var(--presence-active); border-color: var(--una-border); }
+.dock-mic, .dock-stop, .dock-send {
+  background: transparent; border: 1px solid var(--una-border); border-radius: 6px;
+  color: var(--ink-dim); font-size: 14px; padding: 6px 10px; cursor: pointer;
+}
+.dock-input {
+  flex: 1; background: rgba(0,0,0,0.35); border: 1px solid var(--una-border);
+  border-radius: 6px; color: var(--ink); font-size: 13px; padding: 8px 10px; outline: none;
+}
+.dock-input:focus { border-color: var(--presence-idle); }
+
+/* Demo bar: НЕ часть дизайна, только управление сценарием */
+.demo-bar {
+  display: flex; gap: 8px; align-items: center; justify-content: center;
+  padding: 8px; flex: none; border-top: 1px dashed rgba(148,163,184,0.3);
+  font-size: 12px; color: var(--ink-dim);
+}
+.demo-bar button {
+  background: rgba(168,85,247,0.12); border: 1px solid var(--una-border);
+  border-radius: 6px; color: var(--ink); font-size: 12px; padding: 5px 10px; cursor: pointer;
+}
+.demo-bar button:hover { border-color: var(--presence-active); }
+
+@media (prefers-reduced-motion: reduce) {
+  .avatar-glow, .avatar-diamond, .avatar-voice span { animation: none; }
+  .avatar-slot { transition-duration: 200ms; }
+  .presence-line, .msg, .pocket { animation-duration: 200ms; }
+}
+
+@keyframes appear {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes blink { 50% { opacity: 0; } }

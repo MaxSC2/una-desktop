@@ -72,7 +72,7 @@ tests/      Unit и integration tests.
 > Источник правды: `scripts/manifest-files.json`. Обновление: `node scripts/sync-manifest.js`.
 > Не редактировать вручную — блок перезаписывается.
 
-> **Всего файлов:** 262 · **Сгенерировано:** 2026-09-15
+> **Всего файлов:** 267 · **Сгенерировано:** 2026-09-15
 
 ```
 ## .github (2)
@@ -141,7 +141,7 @@ tests/      Unit и integration tests.
   assets/sprites/una_32.png
   assets/sprites/una_33.png
 
-## docs (33)
+## docs (37)
   docs/ARCHITECTURE.md
   docs/BACKGROUND.md
   docs/CODE.md
@@ -158,6 +158,10 @@ tests/      Unit и integration tests.
   docs/design/GRAMMAR_MOTION_v0.1.md
   docs/design/GRAMMAR_VISUAL_v0.1.md
   docs/design/UNA_PRESENCE_DESIGN_v0.1.md
+  docs/design/prototype-a1-a3/README.md
+  docs/design/prototype-a1-a3/index.html
+  docs/design/prototype-a1-a3/prototype.css
+  docs/design/prototype-a1-a3/prototype.js
   docs/design/wireframes/01-idle.md
   docs/design/wireframes/02-speaking.md
   docs/design/wireframes/03-working.md
@@ -342,7 +346,7 @@ tests/      Unit и integration tests.
   src/main.tsx
   src/styles/index.css
 
-## tests (11)
+## tests (12)
   tests/ai/code-tools-integration.test.ts
   tests/ai/code-tools.test.ts
   tests/ai/router.test.ts
@@ -350,6 +354,7 @@ tests/      Unit и integration tests.
   tests/ai/web-tools-integration.test.ts
   tests/ai/web-tools.test.ts
   tests/memory/manager.test.ts
+  tests/memory/migration.test.ts
   tests/memory/rlm.test.ts
   tests/memory/store.test.ts
   tests/safety/classifier.test.ts
