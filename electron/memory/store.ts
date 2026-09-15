@@ -226,6 +226,33 @@ export function initMemory(): void {
     db.exec(`CREATE INDEX IF NOT EXISTS idx_facts_pod ON facts(pod_id)`);
   } catch { /* already exists */ }
 
+  // M6: provenance-колонки — происхождение и управление фактом.
+  // (важность/источник/время граф-синхронизации живут здесь, а не в use_count)
+  const dbRef = db;
+  const addCol = (name: string, ddl: string): void => {
+    try {
+      dbRef.exec(`ALTER TABLE facts ADD COLUMN ${name} ${ddl}`);
+    } catch { /* already exists */ }
+  };
+  addCol('importance', `TEXT NOT NULL DEFAULT 'medium'`);
+  addCol('origin', 'TEXT');
+  addCol('pinned', 'INTEGER NOT NULL DEFAULT 0');
+  addCol('graph_synced_at', 'TEXT');
+  addCol('provenance_json', 'TEXT');
+
+  // M6: архив кандидатов, отклонённых скоринг-гейтом (анти-«молча в /dev/null»)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS memory_candidates (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      category TEXT NOT NULL,
+      content TEXT NOT NULL,
+      score REAL NOT NULL,
+      reason TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_candidates_time ON memory_candidates(created_at)`);
+
   // Seed default pods
   const defaultPods: Array<{ name: string; description: string }> = [
     { name: 'profile', description: 'Личные данные пользователя: имя, возраст, профессия, контакты, биография' },
@@ -597,6 +624,82 @@ export function deleteFact(id: number): void {
   // Синхронизацию FTS выполняет триггер facts_ad (external-content таблица).
   // Ручной `DELETE FROM facts_fts` здесь запрещён для external-content и был бы двойным удалением.
   db.prepare('DELETE FROM facts WHERE id = ?').run(id);
+}
+
+// ============================================================
+// PROVENANCE (M6) — происхождение и управление фактом
+// ============================================================
+
+export interface FactProvenance {
+  /** Важность факта: high — кандидат в L2-граф, low — кандидат на забывание. */
+  importance: 'high' | 'medium' | 'low';
+  /** Откуда факт: 'fact' | 'mem_token' | 'tool' | 'elevated' | 'dedupe' | ... (null = не задан). */
+  origin: string | null;
+  /** Поражение в правах: 0 = обычно, 1 = понижен (аналог pinnable-дубля). */
+  pinned: number;
+  /** Когда факт зафиксирован в L2-графе (null = ещё не синхронизирован). */
+  graph_synced_at: string | null;
+  /** Дополнительные поля (обновления из чанков диалога и т.п.). */
+  updates: number;
+}
+
+/**
+ * Прочитать provenance факта. Отсутствует/не заполнен → значения по умолчанию.
+ */
+export function getFactProvenance(factId: number): FactProvenance | null {
+  if (!db) return null;
+  const row = db
+    .prepare('SELECT importance, origin, pinned, graph_synced_at, provenance_json FROM facts WHERE id = ?')
+    .get(factId) as
+    | { importance: string | null; origin: string | null; pinned: number | null; graph_synced_at: string | null; provenance_json: string | null }
+    | undefined;
+  if (!row) return null;
+
+  let updates = 0;
+  try {
+    const parsed = JSON.parse(row.provenance_json ?? '{}') as { updates?: number };
+    updates = typeof parsed.updates === 'number' ? parsed.updates : 0;
+  } catch {
+    updates = 0;
+  }
+
+  return {
+    importance: (row.importance as FactProvenance['importance']) ?? 'medium',
+    origin: row.origin,
+    pinned: row.pinned ?? 0,
+    graph_synced_at: row.graph_synced_at,
+    updates,
+  };
+}
+
+/**
+ * Записать provenance факта (merge с уже записанным: незаданные поля не трогаем).
+ */
+export function setFactProvenance(
+  factId: number,
+  patch: Partial<Omit<FactProvenance, 'updates'>> & { updates?: number }
+): void {
+  if (!db) return;
+  const current = getFactProvenance(factId);
+  const updates = patch.updates ?? (current?.updates ?? 0) + 1;
+  // Семантика merge: undefined = «не трогать», null = «очистить».
+  const next = {
+    importance: patch.importance !== undefined ? patch.importance : current?.importance ?? 'medium',
+    origin: patch.origin !== undefined ? patch.origin : current?.origin ?? null,
+    pinned: patch.pinned !== undefined ? patch.pinned : current?.pinned ?? 0,
+    graph_synced_at: patch.graph_synced_at !== undefined ? patch.graph_synced_at : current?.graph_synced_at ?? null,
+    updates,
+  };
+  db.prepare(
+    `UPDATE facts SET importance = ?, origin = ?, pinned = ?, graph_synced_at = ?, provenance_json = ? WHERE id = ?`
+  ).run(
+    next.importance,
+    next.origin,
+    next.pinned,
+    next.graph_synced_at,
+    JSON.stringify({ updates: next.updates }),
+    factId
+  );
 }
 
 // ============================================================

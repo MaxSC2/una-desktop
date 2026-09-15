@@ -1,4 +1,19 @@
+import * as crypto from 'crypto';
 import * as os from 'os';
+
+/**
+ * Детерминированный токен подтверждения опасного действия.
+ *
+ * Токен выводится из СОДЕРЖИМОГО действия (tool + параметры), а не из времени:
+ * - повтор того же действия → тот же токен → ранее выданное подтверждение срабатывает;
+ * - изменение параметров → новый токен → новый запрос подтверждения.
+ * (Прежние токены с Date.now()/random не могли совпасть дважды, из-за чего
+ * подтверждение приходилось запрашивать бесконечно.)
+ */
+export function actionToken(prefix: string, actionKey: string): string {
+  const digest = crypto.createHash('sha256').update(actionKey).digest('hex').slice(0, 24);
+  return `${prefix}_${digest}`;
+}
 
 export interface ToolContext {
   /** Подтверждённые пользователем токены (для опасных операций) */

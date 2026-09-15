@@ -19,7 +19,8 @@
 import { BrowserWindow, desktopCapturer } from 'electron';
 import { chatWithTools, chatWithToolsStream, ChatMessage, LLMResponse, StreamChunk } from './llm';
 import { dispatchTool, getToolDefinitions, ToolContext, ToolResult } from '../tools';
-import { saveFact, recallFacts } from '../memory/store';
+import { recallFacts, searchEpisodic } from '../memory/store';
+import { remember, l2Search } from '../memory/manager';
 import { analyzeImage } from './llm';
 import { classifyCommand } from '../safety/classifier';
 import { parseMemoryTokens, executeMemoryTokens, warmCacheAddMessage } from '../memory/rlm';
@@ -246,12 +247,15 @@ export async function executeToolLoop(options: ToolLoopOptions): Promise<ToolLoo
         continue;
       }
 
-      // Memory save (needs store)
+      // Memory save (needs store) — M6: через скоринг-гейт менеджера памяти
       if (toolName === 'memory_save') {
         const fact = String(parsedArgs.fact ?? '');
         const category = String(parsedArgs.category ?? 'user') as 'user' | 'project' | 'preference' | 'task';
-        await saveFact(category, fact);
-        const result: ToolResult = { success: true, data: { saved: true } };
+        const importance = String(parsedArgs.importance ?? 'medium') as 'high' | 'medium' | 'low';
+        const verdict = await remember(category, fact, { importance, origin: 'tool' });
+        const result: ToolResult = verdict.stored
+          ? { success: true, data: { saved: true, ...verdict } }
+          : { success: false, error: `Отклонено скоринг-гейтом: ${verdict.reason ?? 'score_below_threshold'}` };
         messages.push({
           role: 'tool',
           tool_call_id: call.id,
@@ -269,11 +273,16 @@ export async function executeToolLoop(options: ToolLoopOptions): Promise<ToolLoo
         continue;
       }
 
-      // Memory recall (needs store)
+      // Memory recall (needs store) — M6: факты + связанные из графа знаний (3-шаговый recall)
       if (toolName === 'memory_recall') {
         const query = String(parsedArgs.query ?? '');
         const facts = await recallFacts(query, 5);
-        const result: ToolResult = { success: true, data: { facts } };
+        const episodes = searchEpisodic(query, 3).map((m) => ({
+          timestamp: m.timestamp,
+          content: m.content.slice(0, 300),
+        }));
+        const graph = await l2Search(query, 3);
+        const result: ToolResult = { success: true, data: { facts, episodes, graph } };
         messages.push({
           role: 'tool',
           tool_call_id: call.id,

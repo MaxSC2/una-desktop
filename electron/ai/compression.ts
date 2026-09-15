@@ -67,6 +67,21 @@ export async function compressOldConversations(): Promise<number> {
 
     const summary = await summarizeText(sample, { maxInputChars: 12000 });
     if (summary.trim().length > 0) {
+      // M6: сводка — это TRANSCRIPT, а не факт. В L1 она попадает только через
+      // скоринг-гейт менеджера памяти; гейт отклонил — summary остаётся только
+      // в conversations (эпизодический слой), факты не засоряются.
+      try {
+        const { remember } = await import('../memory/manager');
+        const verdict = await remember('project', `Сводка беседы: ${summary.trim()}`, {
+          importance: 'medium',
+          origin: 'conversation_summary',
+        });
+        if (!verdict.stored) {
+          console.log(`[Memory] Summary gate rejected (${verdict.reason}) — kept episodic only`);
+        }
+      } catch (gateErr) {
+        console.warn('[Memory] Summary gate error (summary kept episodic):', gateErr);
+      }
       db.prepare(`UPDATE conversations SET summary = ? WHERE id = ?`).run(summary.trim(), conv.id);
       compressed++;
     } else {

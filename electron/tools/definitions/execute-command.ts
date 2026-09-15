@@ -3,7 +3,7 @@ import * as path from 'path';
 import * as os from 'os';
 import { promisify } from 'util';
 import { classifyCommand } from '../../safety/classifier';
-import { home, safeEnv, truncate, ToolContext, ToolDefinition, ToolResult } from '../helpers';
+import { actionToken, home, safeEnv, truncate, ToolContext, ToolDefinition, ToolResult } from '../helpers';
 
 const execFileAsync = promisify(execFile);
 
@@ -43,7 +43,9 @@ export async function handler(args: Record<string, unknown>, ctx: ToolContext): 
   }
 
   if (safety.level === 'dangerous') {
-    const token = `exec_${Date.now()}_${Buffer.from(cmd).toString('base64url').slice(0, 12)}`;
+    // Токен привязан к команде + рабочей директории: повтор идентичного вызова
+    // находит ранее выданное подтверждение, любая модификация — новый запрос.
+    const token = actionToken('exec', `${cwd}|${cmd}`);
     if (!ctx.confirmedTokens.has(token)) {
       return {
         success: false,

@@ -477,7 +477,9 @@ function registerIpcHandlers(): void {
     validate(ChatConfirmSchema, { token }, 'chat:confirm');
     const tokens = configStore.get('confirmedTokens') as string[] ?? [];
     if (!tokens.includes(token)) {
-      configStore.set('confirmedTokens', [...tokens, token]);
+      // Детерминированные токены накапливаются — храним последние 100,
+      // иначе стор растёт бесконечно (старые подтверждения просто истекают).
+      configStore.set('confirmedTokens', [...tokens, token].slice(-100));
     }
     refreshConfirmedTokens();
     return { ok: true };
@@ -793,7 +795,16 @@ function registerIpcHandlers(): void {
 
   // Memory Compression
   ipcMain.handle('memory:maintenance', async () => {
-    return await runMaintenance();
+    // M6: DREAM-фаза менеджера памяти (flush L1→L2 + provenance) + legacy-сжатие бесед.
+    try {
+      const { maintenance } = await import('./memory/manager');
+      const mgr = await maintenance();
+      const legacy = await runMaintenance();
+      return { ...mgr, compressed: legacy.compressed };
+    } catch (e) {
+      console.warn('[IPC] memory:maintenance manager phase failed:', e);
+      return await runMaintenance();
+    }
   });
 
   // Self Review

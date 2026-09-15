@@ -1,4 +1,4 @@
-import { ToolContext, ToolDefinition, ToolResult } from '../helpers';
+import { actionToken, ToolContext, ToolDefinition, ToolResult } from '../helpers';
 
 export const definition: ToolDefinition = {
   type: 'function' as const,
@@ -20,9 +20,14 @@ export const definition: ToolDefinition = {
 /**
  * Запрос подтверждения опасной операции.
  */
-export async function handler(args: Record<string, unknown>, _ctx: ToolContext): Promise<ToolResult> {
+export async function handler(args: Record<string, unknown>, ctx: ToolContext): Promise<ToolResult> {
   const typedArgs = args as { action: string; risk: 'caution' | 'dangerous'; details: string };
-  const token = `confirm_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  // Токен привязан к описанию действия: после подтверждения повторный вызов
+  // этого же запроса возвращает успех вместо нового диалога (раньше цикл не завершался).
+  const token = actionToken('confirm', `${typedArgs.risk}|${typedArgs.action}|${typedArgs.details}`);
+  if (ctx.confirmedTokens.has(token)) {
+    return { success: true, data: { confirmed: true, action: typedArgs.action } };
+  }
   return {
     success: false,
     needs_confirmation: {

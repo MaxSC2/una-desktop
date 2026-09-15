@@ -46,6 +46,12 @@ vi.mock('../../electron/tools', () => ({
 vi.mock('../../electron/memory/store', () => ({
   saveFact: vi.fn(),
   recallFacts: vi.fn(async () => []),
+  searchEpisodic: vi.fn(() => []),
+}));
+
+vi.mock('../../electron/memory/manager', () => ({
+  remember: vi.fn(async () => ({ stored: true, score: 0.8 })),
+  l2Search: vi.fn(async () => []),
 }));
 
 vi.mock('../../electron/memory/rlm', async () => {
