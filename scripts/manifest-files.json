@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-15T15:59:11.864Z",
+  "generatedAt": "2026-09-15T16:24:16.105Z",
   "note": "Автогенерируется scripts/sync-manifest.js. Единый источник правды для verify-manifest.js.",
   "excludeDirs": [
     "node_modules/",
@@ -38,7 +38,7 @@
     "desktop.ini",
     "scripts/manifest-files.json"
   ],
-  "total": 248,
+  "total": 249,
   "files": [
     ".cursorrules",
     ".env.example",
@@ -93,6 +93,7 @@
     "docs/GRAPHITI_MEMORY.md",
     "docs/HARDWARE.md",
     "docs/INSTALL.md",
+    "docs/JOURNAL.md",
     "docs/MASCOT_TZ.md",
     "docs/MEMORY.md",
     "docs/MENTOR_BRIEFING.md",
