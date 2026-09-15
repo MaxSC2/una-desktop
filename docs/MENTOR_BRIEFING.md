@@ -45,7 +45,7 @@ U.N.A.  (сущность, живёт вне интерфейса)
 
 ### Что реально работает (ядро):
 - Chat pipeline (stream + non-stream), единый `tool-loop`.
-- 24 инструмента + реестр + MCP-fallback.
+- 25 инструментов + реестр + MCP-fallback.
 - Память: SQLite 5 уровней + FTS5 external-content + Memory Pods + граф связей + RLM (HOT/WARM/COLD) + [MEM]-токены + embeddings (Ollama + hashing-fallback).
 - Identity: отдельный слой, `buildIdentityPrompt()`, переживает смену модели.
 - State / Attention / Modes: детерминированные КА (без LLM).
@@ -55,17 +55,25 @@ U.N.A.  (сущность, живёт вне интерфейса)
 - L0 Fast-path: «открой Discord» → резолвер имени → запуск БЕЗ LLM (мс).
 - L1 Semantic router: embeddings → intent (fallback на regex).
 - VRAM-gate: при gaming выгружает модель из Ollama (`keep_alive:0`), с проверкой `/api/ps`.
-- M1/M2 уже в `git` (commit `1e2664a`).
+- M1–M4 уже в `git` (commit `cfb5314`); предыдущие — `1e2664a` (M2), `e2c73f1` (бриф).
 
 ---
 
-## 3. Что делаем сейчас (M3/M4)
+## 3. Что сделано в M3/M4 (в git) и что дальше
 
-- **M3 — включить Graphiti MCP как долговременную память** (граф знаний, embedded Kuzu,
-  БЕЗ Docker). Сервер готов в `~/graphiti-una` (Python + Ollama, проверен E2E:
-  memory_add → memory_search работают). Осталось: подключить через MCP-адаптер UNA.
-- **M4 — честная память/суммаризация** (compression: пока заглушка без LLM), подключить
-  `env-loader.ts` (готов, не импортируется), закрепить каскад L0/L1/L2 в роутере.
+- **M3 — Graphiti MCP как долговременная память: СДЕЛАНО.** `DEFAULT_MCP_SERVERS` в `mcp-adapter.ts`
+  автодетектит `~/graphiti-una/server.py` (venv-python, Ollama `127.0.0.1:11434/v1`,
+  `qwen3:1.7b` + `nomic-embed-text`, Kuzu DB в `C:\Users\Public\una-graphiti`). Проверено
+  протокольно: `initialize` + `tools/list` = 3 tools (memory_add / memory_search / memory_status).
+- **M4 — честная память: СДЕЛАНО.** `summarizeText()` (`llm.ts`) — сводки только локальным Ollama,
+  иначе сжатие пропускается; `compression.ts` — LLM-сжатие только в простое (`shouldMaintainMemory`),
+  promote без сброса `use_count`, forget = мягкое забывание (`use_count = -1`) вместо DELETE;
+  `rlm.summarizeOldMessages` не теряет данные при недоступной модели; `env-loader.ts` подключён в `main.ts`.
+- **Аудит 15.09.2026:** `tsc` 0 ошибок, `vitest run` 203/203, `vite build` 0 ошибок,
+  `verify-manifest.js` 94/94 файлов, инструментов 25. Детали — в `HONEST_STATUS.md`.
+
+**Дальше (M5-кандидаты):** единый роутер L0/L1/L2; Memory Manager (значимость/уверенность/давность/забвение);
+интеграция multi-agent / autonomous-loop / skills; GUI-automation e2e на реальном рабочем столе.
 
 > ⚠️ Порядок: НЕ перепрыгивать. Сначала устойчивое ядро, потом новые слои.
 
@@ -119,7 +127,7 @@ U.N.A.  (сущность, живёт вне интерфейса)
 | `TASK_BOARD.md` | Доска задач (что взято/сделано) |
 
 > ⚠️ Некоторые доки **устарели** (AGENTS.md говорит про qwen3:4b и gemma — сейчас дефолт
-> `qwen3:1.7b`; `.cursorrules` видит 19 инструментов — стало 24). Сверяйтесь с кодом.
+> `qwen3:1.7b`; `.cursorrules` видит 19 инструментов — стало 25). Сверяйтесь с кодом.
 
 ---
 

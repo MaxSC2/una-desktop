@@ -1,10 +1,12 @@
 # U.N.A. Desktop — Честный статус (HONEST STATUS)
 
-> **Дата проверки:** 9 сентября 2026 (M1 «Живая Юна на 4 GB»)
+> **Дата проверки:** 15 сентября 2026 (M4 «Честная память») — полный аудит
 > **Версия проекта:** v40 (рабочее дерево)
 > **Цель:** Честно документировать что РЕАЛЬНО работает, что частично, что не работает.
 >
-> ⚠️ Ревизия M1: local-first по умолчанию, L0 pre-router, TTL-кэш ресурсов, MCP handshake починен.
+> ⚠️ Ревизия M4: честная память (реальные LLM-сводки вместо заглушек, мягкое забывание вместо DELETE,
+> подключён env-loader) + Graphiti MCP включён автодетектом (M3) + VRAM-gate и детект игр (M2) +
+> L0 fast-path и local-first по умолчанию (M1).
 
 ---
 
@@ -16,7 +18,10 @@
 | TypeScript (renderer) | `tsc -p tsconfig.json --noEmit` | ✅ 0 ошибок |
 | Тесты | `vitest run` | ✅ 203 / 203 pass |
 | Сборка рендерера | `vite build` | ✅ собирается (1.45 MB JS, warning про размер чанка) |
-| Инструменты | `grep` по `TOOL_DEFINITIONS` | 24 инструмента |
+| Инструменты | `ls electron/tools/definitions` | 25 инструментов |
+| Манифест файлов | `node scripts/verify-manifest.js` | ✅ 94/94 на месте, 0 пропущено (147 «лишних» вне MANIFEST.md) |
+| MCP (graphiti) | `node scripts/m3-smoke-mcp.mjs` | ✅ initialize + tools/list, 3 tools |
+| Pre-build check | `node scripts/pre-build-check.js` | ✅ 0 ошибок, 2 warning (robotjs optional) |
 | Интеграции | `grep` по импортам `main.ts` | см. ниже |
 
 ---
@@ -33,7 +38,7 @@
 | npm install | ✅ | с `--legacy-peer-deps` |
 | Pre-build validation | ✅ | `scripts/pre-build-check.js` |
 
-### Инструменты (24 в `TOOL_DEFINITIONS`)
+### Инструменты (25 в `TOOL_DEFINITIONS`)
 | Инструмент | Статус | Заметки |
 |-----------|--------|---------|
 | list_files | ✅ | |
@@ -55,6 +60,7 @@
 | web_search | ✅ | через z-ai-web-dev-sdk |
 | web_fetch | ✅ | + SSRF protection |
 | web_download | ✅ | + streaming |
+| create_reminder | ✅ | persistent reminders (`electron/reminders/index.ts`) |
 | open_app | ⚠️ | объявлен в TOOL_DEFINITIONS; требует @nut-tree/nut-js/robotjs |
 | type_text | ⚠️ | см. open_app |
 | click | ⚠️ | см. open_app |
@@ -97,7 +103,8 @@
 5. **Фильтрация `process.env` в execute_command** — ✅ `filterEnv()` (секреты отфильтрованы).
 6. **Graceful degradation TTS** — ✅ возвращает пустой audio вместо throw.
 7. **Дублирование user-сообщения** — ✅ `recent.slice(0, -1)` + `rlmMessages.slice(1, -1)` в обоих IPC хендлерах.
-8. **Модель сменена** — ✅ дефолт `localModel: 'gemma4:e2b-it-qat-2k'` (`config.ts`), не `qwen2.5:3b`.
+8. **Модель сменена** — ✅ дефолт `localModel: 'qwen3:1.7b'`, `provider: 'auto'` (local-first, M1); `qwen2.5:3b` удалена.
+9. **env-loader подключён (M4)** — ✅ `loadEnvFile()` вызывается в `main.ts` до инициализации конфига (ключи из `.env`, не хардкод).
 
 ---
 
@@ -139,10 +146,9 @@
 
 ## ❌ НЕ РАБОТАЕТ / НЕ ПОДКЛЮЧЕНО
 
-### Embeddings (@xenova/transformers)
-- **Проблема:** ESM-only библиотека в CommonJS окружении.
-- **Влияние:** `memory_recall` не работает семантически.
-- **Решение:** конвертировать electron в ESM (большая работа) или найти CJS-совместимую альтернативу.
+### Embeddings (@xenova/transformers) — историческая запись, снято с повестки
+- **Проблема (v30):** ESM-only библиотека в CommonJS окружении.
+- **Факт (проверено M4):** семантическая память работает через Ollama `/api/embed` + hashing fallback (см. «Memory (embeddings)» выше). Зависимость от `@xenova/transformers` не требуется — раздел оставлен для истории.
 
 ### Подсистемы написаны, но НЕ интегрированы в `main.ts`
 Проверено по импортам `main.ts` — следующие модули **не импортируются** и не вызываются из точки входа:
@@ -151,7 +157,7 @@
 |--------|------|--------|
 | Multi-agent orchestrator | `electron/agents/index.ts` | ❌ не подключён (main.ts использует прямой `executeToolLoop`) |
 | Autonomous Loop | `electron/ai/autonomous-loop.ts` | ❌ не подключён |
-| MCP Adapter | `electron/ai/mcp-adapter.ts` | ✅ подключён в `main.ts` + fallback диспетчер в `tools/index.ts` (v30). End-to-end с реальным MCP-сервером не проверен; см. docs/GRAPHITI_MEMORY.md |
+| MCP Adapter | `electron/ai/mcp-adapter.ts` | ✅ подключён в `main.ts` + fallback диспетчер в `tools/index.ts`. Graphiti-сервер автодетектится (M3: `DEFAULT_MCP_SERVERS` → ~/graphiti-una/server.py); проверено протокольно: `initialize` + `tools/list` = 3 tools (memory_add/memory_search/memory_status). Вызовы памяти требуют запущенной Ollama; см. docs/GRAPHITI_MEMORY.md |
 | Skills System | `electron/ai/skills.ts` | ❌ не подключён (dynamic creation не реализовано) |
 
 > Код этих подсистем существует и компилируется, но **не используется** в рантайме.
@@ -183,6 +189,9 @@ M2: ollama keep_alive 5m = VRAM-gate на простой (модель сама 
 пример MCP-сервера обновлён на реальный graphiti-una stdio-сервер.
 L1: semantic router (embeddings-intent) с regex-fallback активен.
 M3: детект игр + VRAM-gate (при запуске игры модель мгновенно выгружается из VRAM).
+M4: честная память — LLM-сводки старых бесед только при реальном ответе модели и только в простое
+(`shouldMaintainMemory`); forget = мягкое забывание (`use_count = -1`), а не DELETE; env-loader подключён;
+Graphiti MCP включается автодетектом (M3) и проверен на уровне протокола (initialize + tools/list = 3 tools).
 Не интегрированы: multi-agent, autonomous loop, skills.
 
 ---
@@ -194,6 +203,7 @@ M3: детект игр + VRAM-gate (при запуске игры модель
 3. **«Готово.» вместо ответа = баг** — теперь причина логгируется в `executeToolLoop`.
 4. **Много кода написано, но не интегрировано** — agents, loop, MCP, skills, GUI. Приоритет — подключить.
 5. **Нативные зависимости GUI** не объявлены в `package.json`.
+6. **Аудит-чеклист обязателен перед отчётом** — сверять счётчики (инструментов 25, не 24), прогонять `vitest run` + `verify-manifest.js`; иначе документация снова разойдётся с кодом.
 
 ---
 

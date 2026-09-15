@@ -1,28 +1,26 @@
-M3+M4: Graphiti memory MCP включён + честная память без фейков
+docs: полный аудит M4 — тесты 203/203, манифест 94/94, HONEST_STATUS приведён в соответствие
 
-M3 — Graphiti MCP (темпоральный граф как долговременная память):
-- mcp-adapter.ts: DEFAULT_MCP_SERVERS → автодетект ~/graphiti-una/server.py
-  (venv-python, Ollama 127.0.0.1:11434/v1, qwen3:1.7b + nomic-embed-text,
-  DB в %SystemDrive%\Users\Public\una-graphiti, group_id=una,
-  теле метрия off). Сервер подключается автоматически при наличии server.py;
-  N+настроек не требуется.
-- scripts/apply-m3-mcp.mjs — применяемая правка (задокументирована).
-- scripts/m3-smoke-mcp.mjs — проверка MCP-канала тем же протоколом, что адаптер:
-  initialize → notifications/initialized → tools/list = 3 tools OK.
+Аудит по чек-листу проекта (.cursorrules + HONEST_STATUS «Как проверялось»):
+- tsc -p electron/tsconfig.json — 0 ошибок
+- vitest run — 203/203 pass (8 файлов)
+- vite build — 0 ошибок
+- scripts/pre-build-check.js — 0 ошибок (2 warning: robotjs optional)
+- node scripts/verify-manifest.js — 94/94 ожидаемых файлов на месте, 0 пропущено
+- инструментов в TOOL_DEFINITIONS: 25 (в документации было 24)
+- main.ts: 32 подключённых модуля (в M4 добавлен env-loader)
+- MCP graphiti: initialize + tools/list = 3 tools (тем же протоколом, что у адаптера)
 
-M4 — честность памяти (никаких фейков, потери данных, DELETE):
-- llm.ts: новый summarizeText() — суммаризация ТОЛЬКО локальным Ollama;
-  возвращает '' при недоступности/ошибке — вызывающий код пропускает сжатие.
-- compression.ts: LLM-сводки старых бесед только когда shouldMaintainMemory();
-  promoteFrequentFacts больше НЕ сбрасывает use_count (честная статистика);
-  demoteStaleFacts → мягкое забывание markFactForget (use_count=-1), без DELETE.
-- memory/rlm.ts: summarizeOldMessages заменяет сжимаемые сообщения на [Сводка]
-  только при реальном ответе LLM; при неудаче сообщения остаются нетронутыми.
-- main.ts: env-loader.ts подключён (loadEnvFile() до инициализации конфига);
-  IPC memory:maintenance стал async + await runMaintenance().
-- life-loop.ts: await runMaintenance().
+Исправлен дрейф документации, найденный аудитом:
+- HONEST_STATUS.md: дефолт модели qwen3:1.7b (было устаревшее gemma4),
+  25 инструментов, статус MCP («end-to-end не проверен») → проверено протокольно,
+  раздел про @xenova/transformers помечен историческим (семантика работает через
+  Ollama /api/embed), добавлена ревизия M4, добавлен урок №6 про аудит-чеклист.
+- docs/MENTOR_BRIEFING.md: раздел 3 «что делаем (M3/M4)» → «что сделано в M3/M4»,
+  25 инструментов, обновлены ссылки на коммиты, добавлены M5-кандидаты.
+- scripts/apply-m4-audit-doc.mjs, scripts/apply-m4-briefing.mjs — воспроизводимые правки доков.
 
-Проверено: tsc -p electron/tsconfig.json (0 ошибок), vite build (0 ошибок),
-pre-build-check.js (0 ошибок). MCP smoke: initialize+tools/list OK (3 tools).
-Ollama-зависимые вызовы graphiti (memory_add/search) не гонялись — уже проверены ранее;
-модель не грузили специально (ресурсы).
+Честные оговорки:
+- LLM-зависимые вызовы graphiti (memory_add / memory_search) в этом аудите не гонялись:
+  требуют запущенной Ollama, ранее проверены E2E. Модель намеренно не грузили (ресурсы).
+- 147 файлов в дереве отсутствуют в MANIFEST.md (дрейф инвентаря) — не ошибки сборки,
+  но манифест стоит обновить отдельной задачей.
