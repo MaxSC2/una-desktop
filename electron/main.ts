@@ -35,7 +35,7 @@ import { startLifeLoop, stopLifeLoop, getLifeLoopStats } from './ai/life-loop';
 import { getResourceState } from './ai/resource-manager';
 import { recordInteraction, getAttentionState, setDoNotDisturb } from './ai/attention-manager';
 import { getIdentity, saveIdentity, resetIdentity, buildIdentityPrompt } from './ai/identity';
-import { getConfigStore, setLLMConfig as setLLMConfigConfig, setTTSConfig as setTTSConfigConfig, setASRConfig as setASRConfigConfig, setProactiveConfig, setOnboardingCompleted, setUserProfile, setCurrentConversationId, addConfirmedToken, getCurrentConversationId, getConfig } from './ai/config';
+import { getConfigStore, setLLMConfig as setLLMConfigConfig, setTTSConfig as setTTSConfigConfig, setASRConfig as setASRConfigConfig, setProactiveConfig, setOnboardingCompleted, setUserProfile, setCurrentConversationId, addConfirmedAction, consumeConfirmedAction, purgeExpiredConfirmedActions, getCurrentConversationId, getConfig } from './ai/config';
 import { createGoal, getActiveGoals, getAllGoals, updateSubgoalStatus, interruptGoal, resumeGoal, completeGoal, cancelGoal, getGoalById } from './ai/executive';
 import { getRecentReviews, getReviewSummary, runDeepReview, clearReviews } from './ai/self-review';
 import { buildWorldState, incrementMessageCount } from './ai/world-model';
@@ -59,12 +59,15 @@ let activeAbortController: AbortController | null = null;
 
 let toolContext: ToolContext = {
   confirmedTokens: new Set<string>(),
+  consumeToken: (token: string) => consumeConfirmedAction(token),
 };
 
-/** Пересоздать Set токенов из store — без shared mutable state */
+/** Пересоздать Set токенов из store — без shared mutable state. Заодно чистит TTL. */
 function refreshConfirmedTokens(): void {
+  const live = purgeExpiredConfirmedActions();
   toolContext = {
-    confirmedTokens: new Set<string>(configStore.get('confirmedTokens') as string[] ?? []),
+    confirmedTokens: new Set<string>(live.map((r) => r.token)),
+    consumeToken: (token: string) => consumeConfirmedAction(token),
   };
 }
 
@@ -472,15 +475,20 @@ function registerIpcHandlers(): void {
     return { ok: true };
   });
 
-  // Подтверждение опасной операции
-  ipcMain.handle('chat:confirm', async (_event, token: string) => {
+  // Подтверждение опасной операции — создаём pending-action record
+  // (token + описание + origin + createdAt); TTL чистится в refreshConfirmedTokens.
+  ipcMain.handle('chat:confirm', async (_event, payload: { token: string; action?: string }) => {
+    const token = typeof payload === 'string' ? payload : payload?.token;
     validate(ChatConfirmSchema, { token }, 'chat:confirm');
-    const tokens = configStore.get('confirmedTokens') as string[] ?? [];
-    if (!tokens.includes(token)) {
-      // Детерминированные токены накапливаются — храним последние 100,
-      // иначе стор растёт бесконечно (старые подтверждения просто истекают).
-      configStore.set('confirmedTokens', [...tokens, token].slice(-100));
-    }
+    const action = typeof payload === 'object' && payload !== null && typeof payload.action === 'string'
+      ? payload.action
+      : '';
+    addConfirmedAction({
+      token,
+      action,
+      origin: 'chat',
+      createdAt: new Date().toISOString(),
+    });
     refreshConfirmedTokens();
     return { ok: true };
   });

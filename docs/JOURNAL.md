@@ -32,4 +32,19 @@
 
 **Проверки:** tsc 0 ошибок · vitest 228/228 (11 файлов) · verify-manifest ✓
 
-**Дальше:** pending-action record (TTL/origin/одноразовость подтверждений) → обновить HONEST_STATUS → миграционные тесты M6.
+---
+
+**Подтверждения v2 — pending-action records (research-backlog Pass 1):**
+- `confirmedTokens: string[]` → `confirmedActions: ConfirmedActionRecord[]` (`electron/tools/helpers.ts`, `electron/ai/config.ts`): token + action + origin + createdAt
+- TTL 10 минут (`CONFIRM_TTL_MS`), чистка `purgeExpiredActions()` — чистая функция, fail-closed для битых/будущих дат
+- одноразовость: `consumeToken` в `ToolContext`, инструменты гасят токен после исполнения (execute-command, write-file)
+- `chat:confirm` принимает `{token, action}`, origin=`chat`; цепочка preload → api → useUNA проведена
+- backup-валидация переведена на `confirmedActions`
+- тесты `tests/tools/confirmation.test.ts`: 6 → 12 (TTL ×4, one-shot ×2)
+
+**Документация:**
+- HONEST_STATUS.md: ревизия M6, счётчики 203→234 и манифест 94→249, приоритет «аудит подтверждений» закрыт, DoD из backlog (tsc/test/build) выполнен
+
+**Проверки (вечер):** tsc electron 0 · tsc renderer 0 · vitest 234/234 (11 файлов) · `npm run build` ✓ (28.4s, warning о размере чанка — старый)
+
+**Дальше:** миграционные тесты M6 → injection-фикстуры (web/MCP) → Pass 2 (сравнение memory-проектов).

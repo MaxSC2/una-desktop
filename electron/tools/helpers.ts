@@ -15,9 +15,51 @@ export function actionToken(prefix: string, actionKey: string): string {
   return `${prefix}_${digest}`;
 }
 
+// ============================================================
+// Pending-action record — подтверждение как запись с TTL (M6/Pass 1)
+// ============================================================
+
+/** Сколько живёт подтверждение действия (10 минут). */
+export const CONFIRM_TTL_MS = 10 * 60_000;
+
+/**
+ * Запись о подтверждённом действии: не просто строка-токен, а аудит-запись.
+ * - token: детерминированный digest действия (actionToken)
+ * - action: человекочитаемое описание (для аудита/UI)
+ * - origin: канал подтверждения (chat / telegram / autonomous)
+ * - createdAt: момент подтверждения; по нему считается TTL
+ */
+export interface ConfirmedActionRecord {
+  token: string;
+  action: string;
+  origin: string;
+  createdAt: string;
+}
+
+/**
+ * Убирает протухшие подтверждения. Чистая функция — тестируется без electron-store.
+ * Записи с некорректной/отсутствующей датой считаются протухшими (fail-closed).
+ */
+export function purgeExpiredActions(
+  records: ConfirmedActionRecord[],
+  now: number = Date.now(),
+  ttl: number = CONFIRM_TTL_MS
+): ConfirmedActionRecord[] {
+  return records.filter((r) => {
+    const t = Date.parse(r.createdAt);
+    return Number.isFinite(t) && now - t >= 0 && now - t < ttl;
+  });
+}
+
 export interface ToolContext {
   /** Подтверждённые пользователем токены (для опасных операций) */
   confirmedTokens: Set<string>;
+  /**
+   * Одноразовое подтверждение: инструмент вызывает после ИСПОЛНЕНИЯ действия,
+   * чтобы погасить токен (повтор действия = новый запрос подтверждения).
+   * Опционален — тестовые/mock-контексты могут его не передавать.
+   */
+  consumeToken?: (token: string) => void;
 }
 
 export interface ToolResult {

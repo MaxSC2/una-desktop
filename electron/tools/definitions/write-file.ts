@@ -26,25 +26,27 @@ export async function handler(args: Record<string, unknown>, ctx: ToolContext): 
   const typedArgs = args as { path: string; content: string };
   const target = path.resolve(typedArgs.path.replace(/^~/, home()));
 
-  if (!isPathInsideHome(target, home())) {
-    // Токен привязан к целевому пути: пользователь подтверждает запись именно в этот файл.
-    const token = actionToken('write', target);
-    if (!ctx.confirmedTokens.has(token)) {
-      return {
-        success: false,
-        needs_confirmation: {
-          token,
-          action: `Записать файл: ${target}`,
-          risk: 'dangerous',
-          details: 'Файл находится вне домашней директории пользователя.',
-        },
-      };
-    }
+  // Токен привязан к целевому пути: пользователь подтверждает запись именно в этот файл.
+  // Вычисляется до гейта, чтобы после записи можно было погасить (consume).
+  const outsideHome = !isPathInsideHome(target, home());
+  const confirmToken = outsideHome ? actionToken('write', target) : null;
+  if (confirmToken && !ctx.confirmedTokens.has(confirmToken)) {
+    return {
+      success: false,
+      needs_confirmation: {
+        token: confirmToken,
+        action: `Записать файл: ${target}`,
+        risk: 'dangerous',
+        details: 'Файл находится вне домашней директории пользователя.',
+      },
+    };
   }
 
   try {
     await fs.mkdir(path.dirname(target), { recursive: true });
     await fs.writeFile(target, typedArgs.content, 'utf8');
+    // Одноразовое подтверждение: запись исполнена — токен погашается
+    if (confirmToken) ctx.consumeToken?.(confirmToken);
     return { success: true, data: { path: target, bytes: Buffer.byteLength(typedArgs.content, 'utf8') } };
   } catch (e) {
     return { success: false, error: `Не удалось записать файл: ${(e as Error).message}` };

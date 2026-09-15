@@ -179,7 +179,7 @@ export function useUNA() {
   const confirmAction = useCallback(async () => {
     const conf = store.pendingConfirmation;
     if (!conf) return;
-    await window.una.chat.confirm(conf.token);
+    await window.una.chat.confirm(conf.token, conf.action);
     store.setPendingConfirmation(null);
     store.setStatus('idle');
     store.addMessage({

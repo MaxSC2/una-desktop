@@ -1,12 +1,15 @@
 # U.N.A. Desktop — Честный статус (HONEST STATUS)
 
-> **Дата проверки:** 15 сентября 2026 (M4 «Честная память») — полный аудит
+> **Дата проверки:** 15 сентября 2026 (M6 «Память + подтверждения») — обновление аудита M4
 > **Версия проекта:** v40 (рабочее дерево)
 > **Цель:** Честно документировать что РЕАЛЬНО работает, что частично, что не работает.
 >
 > ⚠️ Ревизия M4: честная память (реальные LLM-сводки вместо заглушек, мягкое забывание вместо DELETE,
 > подключён env-loader) + Graphiti MCP включён автодетектом (M3) + VRAM-gate и детект игр (M2) +
 > L0 fast-path и local-first по умолчанию (M1).
+> Ревизия M6: Memory Manager (скоринг-гейт → L1 store → L2 Graphiti, maintenance, elevate) +
+> pending-action records для подтверждений (детерминированный digest действия, TTL 10 минут,
+> origin-канал, одноразовое погашение после исполнения).
 
 ---
 
@@ -16,10 +19,10 @@
 |----------|---------|-----------|
 | TypeScript (electron) | `tsc -p electron/tsconfig.json --noEmit` | ✅ 0 ошибок |
 | TypeScript (renderer) | `tsc -p tsconfig.json --noEmit` | ✅ 0 ошибок |
-| Тесты | `vitest run` | ✅ 203 / 203 pass |
+| Тесты | `vitest run` | ✅ 234 / 234 pass |
 | Сборка рендерера | `vite build` | ✅ собирается (1.45 MB JS, warning про размер чанка) |
 | Инструменты | `ls electron/tools/definitions` | 25 инструментов |
-| Манифест файлов | `node scripts/verify-manifest.js` | ✅ 94/94 на месте, 0 пропущено (147 «лишних» вне MANIFEST.md) |
+| Манифест файлов | `node scripts/verify-manifest.js` | ✅ 249/249 на месте, 0 пропущено, 0 лишних |
 | MCP (graphiti) | `node scripts/m3-smoke-mcp.mjs` | ✅ initialize + tools/list, 3 tools |
 | Pre-build check | `node scripts/pre-build-check.js` | ✅ 0 ошибок, 2 warning (robotjs optional) |
 | Интеграции | `grep` по импортам `main.ts` | см. ниже |
@@ -179,11 +182,11 @@
 | Память | факты + recall (FTS5 + embeddings) | Graphiti (docs, конфиг-заготовка) | — |
 | Автономность | MCP подключён | — | agents, loop, skills |
 | Голос | TTS fallback (speechSynthesis) | Piper/Z.ai (по настройке), ASR fallback | — |
-| Безопасность | classifier + SSRF + env filter + protected files | — | — |
+| Безопасность | classifier + SSRF + env filter + protected files + pending-action confirmations (TTL/origin/one-shot) | — | — |
 
 ### Честная оценка зрелости: 8/10
 Ядро (чат + tools + streaming + память фактов + безопасность + голос-fallback) работает
-и протестировано (203/203). M1: local-first по умолчанию (Ollama qwen3:1.7b, think off),
+и протестировано (234/234). M1: local-first по умолчанию (Ollama qwen3:1.7b, think off),
 L0 pre-router (gui/system — < 50 мс, ноль GPU), MCP handshake починен.
 M2: ollama keep_alive 5m = VRAM-gate на простой (модель сама выгружается, пока играешь/работаешь),
 пример MCP-сервера обновлён на реальный graphiti-una stdio-сервер.
@@ -192,6 +195,9 @@ M3: детект игр + VRAM-gate (при запуске игры модель
 M4: честная память — LLM-сводки старых бесед только при реальном ответе модели и только в простое
 (`shouldMaintainMemory`); forget = мягкое забывание (`use_count = -1`), а не DELETE; env-loader подключён;
 Graphiti MCP включается автодетектом (M3) и проверен на уровне протокола (initialize + tools/list = 3 tools).
+M6: Memory Manager — скоринг-гейт, L1-стор, L2-Graphiti ретейн, идемпотентная maintenance, элевация
+отклонённых кандидатов; подтверждения опасных действий — pending-action records (digest действия,
+TTL 10 минут, origin, одноразовое погашение после исполнения).
 Не интегрированы: multi-agent, autonomous loop, skills.
 
 ---
@@ -211,7 +217,9 @@ Graphiti MCP включается автодетектом (M3) и провер�
 
 1. ~~**Починить embeddings**~~ — ✅ решено через Ollama `/api/embed` + FTS5 fix (v30).
 2. ~~**MCP Adapter**~~ — ✅ подключён в main.ts (v30); end-to-end с Graphiti см. docs/GRAPHITI_MEMORY.md.
-3. **Интегрировать multi-agent в `main.ts`** — код есть, но не используется.
-4. **GUI-automation end-to-end** — зависимость установлена, проверить на реальном столе.
-5. **Avatar redesign** — `UnaAvatar` по оценке пользователя сделан плохо.
-6. **Подключить Autonomous Loop / Skills** — после архитектурного решения о маршрутизации с multi-agent.
+3. ~~**Аудит жизненного цикла подтверждений**~~ — ✅ решено в M6 (research-backlog Pass 1): детерминированные токены + pending-action records (TTL 10 мин, origin, одноразовое погашение); тесты `tests/tools/confirmation.test.ts`.
+4. **Миграционные тесты M6** (старая БД → апгрейд, повторный старт, FTS) и **injection-фикстуры** (web/MCP) — по research-backlog Pass 1.
+5. **Интегрировать multi-agent в `main.ts`** — код есть, но не используется.
+6. **GUI-automation end-to-end** — зависимость установлена, проверить на реальном столе (контракт подтверждений больше не блокер).
+7. **Avatar redesign** — `UnaAvatar` по оценке пользователя сделан плохо.
+8. **Подключить Autonomous Loop / Skills** — после архитектурного решения о маршрутизации с multi-agent.

@@ -62,7 +62,7 @@ interface BackupEmotion {
 
 interface BackupConfig {
   currentConversationId?: number | null;
-  confirmedTokens?: unknown;
+  confirmedActions?: unknown;
   hotkey?: string;
   startMinimized?: boolean;
   onboardingCompleted?: boolean;

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-15T16:24:16.105Z",
+  "generatedAt": "2026-09-15T16:53:30.022Z",
   "note": "Автогенерируется scripts/sync-manifest.js. Единый источник правды для verify-manifest.js.",
   "excludeDirs": [
     "node_modules/",

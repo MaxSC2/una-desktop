@@ -16,6 +16,8 @@ import Store from 'electron-store';
 import type { LLMConfig } from '../ai/llm';
 import type { TTSConfig } from '../ai/tts';
 import type { ASRConfig } from '../ai/asr';
+import type { ConfirmedActionRecord } from '../tools/helpers';
+import { purgeExpiredActions } from '../tools/helpers';
 
 // ============================================================
 // TYPES
@@ -59,7 +61,8 @@ export interface ProactiveConfig {
 export interface UNAConfig {
   // Main
   currentConversationId: number | null;
-  confirmedTokens: string[];
+  /** Подтверждённые действия с TTL/origin (M6/Pass 1); старые confirmedTokens мигрированы */
+  confirmedActions: ConfirmedActionRecord[];
   hotkey: string;
   startMinimized: boolean;
 
@@ -96,7 +99,7 @@ export interface UNAConfig {
 
 export const DEFAULT_CONFIG: UNAConfig = {
   currentConversationId: null,
-  confirmedTokens: [],
+  confirmedActions: [],
   hotkey: 'CommandOrControl+Shift+Space',
   startMinimized: false,
 
@@ -269,15 +272,39 @@ export function setUserProfile(profile: Record<string, unknown>): void {
 }
 
 // Main
-export function getConfirmedTokens(): string[] {
-  return getConfigStore().get('confirmedTokens');
+// ============================================================
+// Подтверждения опасных действий — pending-action records (M6/Pass 1)
+// Не строки-токены, а записи: token + описание + origin + createdAt (TTL).
+// ============================================================
+
+export function getConfirmedActions(): ConfirmedActionRecord[] {
+  return getConfigStore().get('confirmedActions') as ConfirmedActionRecord[] ?? [];
 }
 
-export function addConfirmedToken(token: string): void {
-  const tokens = getConfigStore().get('confirmedTokens');
-  if (!tokens.includes(token)) {
-    getConfigStore().set('confirmedTokens', [...tokens, token]);
+/** Добавляет подтверждение (дедуп по токену, максимум 100 записей). */
+export function addConfirmedAction(rec: ConfirmedActionRecord): void {
+  const records = getConfirmedActions();
+  if (!records.some((r) => r.token === rec.token)) {
+    getConfigStore().set('confirmedActions', [...records, rec].slice(-100));
   }
+}
+
+/** Одноразовое подтверждение: гасит запись после исполнения действия. */
+export function consumeConfirmedAction(token: string): void {
+  const records = getConfirmedActions();
+  const filtered = records.filter((r) => r.token !== token);
+  if (filtered.length !== records.length) {
+    getConfigStore().set('confirmedActions', filtered);
+  }
+}
+
+/** Удаляет протухшие записи из стора и возвращает живые. */
+export function purgeExpiredConfirmedActions(): ConfirmedActionRecord[] {
+  const live = purgeExpiredActions(getConfirmedActions());
+  if (live.length !== getConfirmedActions().length) {
+    getConfigStore().set('confirmedActions', live);
+  }
+  return live;
 }
 
 export function getCurrentConversationId(): number | null {

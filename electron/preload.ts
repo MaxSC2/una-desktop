@@ -12,7 +12,7 @@ const UNA_API = {
   chat: {
     send: (text: string) => ipcRenderer.invoke('chat:send', text),
     stream: (text: string) => ipcRenderer.invoke('chat:stream', text),
-    confirm: (token: string) => ipcRenderer.invoke('chat:confirm', token),
+    confirm: (token: string, action?: string) => ipcRenderer.invoke('chat:confirm', { token, action }),
     stop: () => ipcRenderer.invoke('chat:stop'),
   },
   // Речь

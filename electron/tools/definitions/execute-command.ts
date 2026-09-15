@@ -42,21 +42,20 @@ export async function handler(args: Record<string, unknown>, ctx: ToolContext): 
     };
   }
 
-  if (safety.level === 'dangerous') {
-    // Токен привязан к команде + рабочей директории: повтор идентичного вызова
-    // находит ранее выданное подтверждение, любая модификация — новый запрос.
-    const token = actionToken('exec', `${cwd}|${cmd}`);
-    if (!ctx.confirmedTokens.has(token)) {
-      return {
-        success: false,
-        needs_confirmation: {
-          token,
-          action: `Выполнить команду: ${cmd}`,
-          risk: 'dangerous',
-          details: `${safety.reason}. Рабочая директория: ${cwd}`,
-        },
-      };
-    }
+  // Токен привязан к команде + рабочей директории: повтор идентичного вызова
+  // находит ранее выданное подтверждение, любая модификация — новый запрос.
+  // Вычисляется до гейта, чтобы после исполнения можно было погасить (consume).
+  const confirmToken = safety.level === 'dangerous' ? actionToken('exec', `${cwd}|${cmd}`) : null;
+  if (confirmToken && !ctx.confirmedTokens.has(confirmToken)) {
+    return {
+      success: false,
+      needs_confirmation: {
+        token: confirmToken,
+        action: `Выполнить команду: ${cmd}`,
+        risk: 'dangerous',
+        details: `${safety.reason}. Рабочая директория: ${cwd}`,
+      },
+    };
   }
 
   try {
@@ -70,6 +69,8 @@ export async function handler(args: Record<string, unknown>, ctx: ToolContext): 
       maxBuffer: 1024 * 1024,
       env: safeEnv(),
     });
+    // Одноразовое подтверждение: действие исполнено — токен погашается
+    if (confirmToken) ctx.consumeToken?.(confirmToken);
     return {
       success: true,
       data: {

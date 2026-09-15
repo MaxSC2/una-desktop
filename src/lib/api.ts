@@ -22,7 +22,7 @@ export interface UNAApi {
       } | null;
     }>;
     stream: (text: string) => Promise<{ ok: boolean; error?: string }>;
-    confirm: (token: string) => Promise<{ ok: boolean }>;
+    confirm: (token: string, action?: string) => Promise<{ ok: boolean }>;
     stop: () => Promise<{ ok: boolean }>;
   };
   asr: {
