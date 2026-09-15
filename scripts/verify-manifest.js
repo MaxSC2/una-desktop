@@ -2,252 +2,141 @@
 /**
  * U.N.A. Desktop — File Integrity Checker
  *
- * Проверяет что все файлы из MANIFEST.md существуют в проекте.
- * Запуск: node scripts/verify-manifest.js
+ * Проверяет, что все файлы проекта на месте (и что в дереве нет «тихих» лишних).
+ * Источник правды: scripts/manifest-files.json (генерируется scripts/sync-manifest.js).
+ * Если JSON отсутствует — используется встроенный fallback-список.
  *
- * Exit codes:
- *  0 — все файлы на месте
- *  1 — есть пропавшие файлы
- *  2 — критическая ошибка
+ * Запуск: node scripts/verify-manifest.js
+ * Exit: 0 — все файлы на месте; 1 — есть пропавшие; 2 — критическая ошибка.
  */
 
 const fs = require('fs');
 const path = require('path');
 
-// Полный список файлов проекта (из MANIFEST.md)
-const EXPECTED_FILES = [
-  // Корневые
-  '.cursorrules',
-  '.env.example',
-  '.gitignore',
-  'README.md',
-  'MANIFEST.md',
-  'CHANGELOG.md',
-  'INSTALL.md',
-  'package.json',
-  'tsconfig.json',
-  'vite.config.ts',
-  'vitest.config.ts',
-  'tailwind.config.js',
-  'postcss.config.js',
-  'index.html',
-  'start.bat',
-  'install.bat',
-  'start.ps1',
-  'start.sh',
+const ROOT = path.resolve(__dirname, '..');
+const JSON_PATH = path.join(__dirname, 'manifest-files.json');
 
-  // Корневые документы (опциональные метаданные/исследование)
-  'AGENTS.md',
-  'AUDIT_REPORT.md',
-  'HONEST_STATUS.md',
-  'UNA_Research.pdf',
-
-  // assets
-  'assets/icon.png',
-
-  // docs
-  'docs/ARCHITECTURE.md',
-  'docs/BACKGROUND.md',
-  'docs/CODE.md',
-  'docs/HARDWARE.md',
-  'docs/INSTALL.md',
-  'docs/MEMORY.md',
-  'docs/SECURITY.md',
-  'docs/MASCOT_TZ.md',
-
-  // electron
-  'electron/main.ts',
-  'electron/preload.ts',
-  'electron/tsconfig.json',
-  'electron/ai/llm.ts',
-  'electron/ai/config.ts',
-  'electron/ai/intent.ts',
-  'electron/ai/tool-loop.ts',
-  'electron/ai/asr.ts',
-  'electron/ai/tts.ts',
-  'electron/ai/web-tools.ts',
-  'electron/ai/code-tools.ts',
-  'electron/ai/goal-tracker.ts',
-  'electron/ai/autonomous-loop.ts',
-  'electron/ai/rollback.ts',
-  'electron/ai/mcp-adapter.ts',
-  'electron/ai/skills.ts',
-  'electron/ai/gui-automation.ts',
-  'electron/ai/background-monitor.ts',
-  'electron/ai/proactive.ts',
-  'electron/ai/work-context.ts',
-  'electron/ai/dynamic-prompt/index.ts',
-  'electron/agents/index.ts',
-  'electron/agents/rlm-extensions.ts',
-  'electron/memory/store.ts',
-  'electron/memory/rlm.ts',
-  'electron/safety/classifier.ts',
-  'electron/tools/index.ts',
-  'electron/validation/schemas.ts',
-
-  // src
-  'src/App.tsx',
-  'src/main.tsx',
-  'src/components/ChatPanel.tsx',
-  'src/components/MarkdownRenderer.tsx',
-  'src/components/CodeBlock.tsx',
-  'src/components/OnboardingWizard.tsx',
-  'src/components/UnaAvatar.tsx',
-  'src/components/MiniOverlay.tsx',
-  'src/components/QuickPalette.tsx',
-  'src/components/EmotionPanel.tsx',
-  'src/components/WorkPanel.tsx',
-  'src/components/SettingsPanel.tsx',
-  'src/components/MemoryPanel.tsx',
-  'src/components/FilesPanel.tsx',
-  'src/components/ConfirmationDialog.tsx',
-  'src/components/ErrorBoundary.tsx',
-  'src/components/Orb.tsx',
-  'src/components/UnaMascot.tsx',
-  'src/components/RiveMascot.tsx',
-  'src/hooks/useUNA.ts',
-  'src/lib/store.ts',
-  'src/lib/api.ts',
-  'src/lib/toast-utils.ts',
-  'src/styles/index.css',
-
-  // prompts
+// Fallback (используется только если manifest-files.json не найден)
+const FALLBACK_FILES = [
+  '.cursorrules', '.env.example', '.gitignore', 'README.md', 'MANIFEST.md', 'CHANGELOG.md', 'INSTALL.md',
+  'package.json', 'tsconfig.json', 'vite.config.ts', 'vitest.config.ts', 'tailwind.config.js',
+  'postcss.config.js', 'index.html',
+  'electron/main.ts', 'electron/preload.ts', 'electron/tsconfig.json',
+  'electron/ai/llm.ts', 'electron/ai/config.ts', 'electron/ai/intent.ts', 'electron/ai/tool-loop.ts',
+  'electron/ai/mcp-adapter.ts', 'electron/ai/gui-automation.ts',
+  'electron/memory/store.ts', 'electron/memory/rlm.ts',
+  'electron/tools/index.ts', 'electron/validation/schemas.ts',
   'prompts/system.ts',
-
-  // scripts
-  'scripts/setup.js',
-  'scripts/verify-manifest.js',
-  'scripts/pre-build-check.js',
-  'scripts/test-web-tools.ts',
-  'scripts/test-code-tools.ts',
-
-  // tests
-  'tests/ai/web-tools.test.ts',
-  'tests/ai/web-tools-integration.test.ts',
-  'tests/ai/code-tools.test.ts',
-  'tests/ai/code-tools-integration.test.ts',
-  'tests/safety/classifier.test.ts',
 ];
 
-const ROOT = path.join(__dirname, '..');
+const DEFAULT_DIRS = ['node_modules/', '.git/', 'dist/', 'dist-electron/', 'release/', 'out/', 'build/', 'coverage/', 'test-downloads/', '.vscode/', '.idea/', '.una/'];
+const DEFAULT_SUFFIXES = ['.log', '.zip', '.db', '.db-journal', '.db-wal', '.db-shm', '.bak', '.tmp', '.swp', '.swo'];
+const DEFAULT_NAMES = ['package-lock.json', 'package.json.bak', 'commit-msg.txt', 'nul', 'Thumbs.db', 'desktop.ini', 'scripts/manifest-files.json'];
 
-const COLORS = {
-  green: '\x1b[32m',
-  red: '\x1b[31m',
-  yellow: '\x1b[33m',
-  cyan: '\x1b[36m',
-  reset: '\x1b[0m',
-  bold: '\x1b[1m',
-};
-
-function log(msg, color = 'reset') {
-  console.log(`${COLORS[color] || ''}${msg}${COLORS.reset}`);
+function loadSource() {
+  try {
+    const raw = JSON.parse(fs.readFileSync(JSON_PATH, 'utf8'));
+    if (!Array.isArray(raw.files) || raw.files.length === 0) throw new Error('empty files[]');
+    return {
+      files: raw.files,
+      dirs: raw.excludeDirs ?? DEFAULT_DIRS,
+      suffixes: raw.excludeSuffixes ?? DEFAULT_SUFFIXES,
+      names: raw.excludeNames ?? DEFAULT_NAMES,
+      generatedAt: raw.generatedAt ?? '(unknown)',
+      source: 'manifest-files.json',
+    };
+  } catch {
+    return {
+      files: FALLBACK_FILES,
+      dirs: DEFAULT_DIRS,
+      suffixes: DEFAULT_SUFFIXES,
+      names: DEFAULT_NAMES,
+      generatedAt: '(fallback)',
+      source: 'built-in fallback',
+    };
+  }
 }
 
 function main() {
-  log('\n═══════════════════════════════════════════════════════════', 'cyan');
-  log('  U.N.A. Desktop — File Integrity Checker', 'bold');
-  log('═══════════════════════════════════════════════════════════\n', 'cyan');
+  const src = loadSource();
 
-  const missing = [];
+  const isExcluded = (rel) =>
+    src.dirs.some((d) => rel.startsWith(d)) ||
+    src.suffixes.some((s) => rel.endsWith(s)) ||
+    src.names.includes(rel);
+
   const present = [];
+  const missing = [];
   let totalSize = 0;
-
-  for (const file of EXPECTED_FILES) {
-    const fullPath = path.join(ROOT, file);
-    if (fs.existsSync(fullPath)) {
-      const stat = fs.statSync(fullPath);
+  for (const file of src.files) {
+    const full = path.join(ROOT, file);
+    if (fs.existsSync(full)) {
       present.push(file);
-      totalSize += stat.size;
+      totalSize += fs.statSync(full).size;
     } else {
       missing.push(file);
     }
   }
 
-  // Также проверяем наличие лишних файлов (не в манифесте, но в проекте)
   const allFiles = new Set();
-  function walk(dir) {
-    const entries = fs.readdirSync(dir, { withFileTypes: true });
-    for (const entry of entries) {
-      const fullPath = path.join(dir, entry.name);
-      const relPath = path.relative(ROOT, fullPath).replace(/\\/g, '/');
-
-      // Skip excluded
-      if (
-        relPath.startsWith('node_modules/') ||
-        relPath.startsWith('.git/') ||
-        relPath.startsWith('dist/') ||
-        relPath.startsWith('dist-electron/') ||
-        relPath.startsWith('coverage/') ||
-        relPath.startsWith('test-downloads/') ||
-        relPath.endsWith('.log') ||
-        relPath === 'package-lock.json' ||
-        relPath === 'package.json.bak'
-      ) {
-        continue;
-      }
-
-      if (entry.isDirectory()) {
-        walk(fullPath);
-      } else {
-        allFiles.add(relPath);
-      }
+  (function walk(dir) {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      const rel = path.relative(ROOT, full).replace(/\\/g, '/');
+      if (isExcluded(rel)) continue;
+      if (entry.isDirectory()) walk(full);
+      else allFiles.add(rel);
     }
-  }
-  walk(ROOT);
+  })(ROOT);
 
-  const expectedSet = new Set(EXPECTED_FILES);
+  const expectedSet = new Set(src.files);
   const extra = Array.from(allFiles).filter((f) => !expectedSet.has(f)).sort();
 
-  // Отчёт
-  log(`📊 Ожидается файлов: ${EXPECTED_FILES.length}`, 'cyan');
-  log(`✅ Найдено: ${present.length}`, 'green');
-  log(`❌ Пропущено: ${missing.length}`, missing.length > 0 ? 'red' : 'green');
-  log(`📦 Общий размер: ${(totalSize / 1024).toFixed(1)} KB`, 'cyan');
-  log(`📝 Лишних файлов: ${extra.length}`, extra.length > 0 ? 'yellow' : 'green');
-  log('');
+  const line = '═══════════════════════════════════════════════════════════';
+  console.log('\n' + line);
+  console.log('  U.N.A. Desktop — File Integrity Checker');
+  console.log('  источник: ' + src.source + ' (сгенерирован: ' + src.generatedAt + ')');
+  console.log(line);
+  console.log(` Ожидается файлов: ${src.files.length}`);
+  console.log(`✅ Найдено: ${present.length}`);
+  console.log(`❌ Пропущено: ${missing.length}`);
+  console.log(`📦 Общий размер: ${(totalSize / 1024).toFixed(1)} KB`);
+  console.log(`📝 Лишних файлов: ${extra.length}`);
+  console.log('');
 
   if (missing.length > 0) {
-    log('═══════════════════════════════════════════════════════════', 'red');
-    log('  ❌ ПРОПАВШИЕ ФАЙЛЫ:', 'red');
-    log('═══════════════════════════════════════════════════════════', 'red');
-    for (const file of missing) {
-      log(`  ✗ ${file}`, 'red');
-    }
-    log('');
-    log('  Действия для восстановления:', 'yellow');
-    log('  1. Проверить git history: git log --oneline -- <file>', 'yellow');
-    log('  2. Восстановить: git checkout HEAD -- <file>', 'yellow');
-    log('  3. Или распаковать из последнего архива U.N.A.', 'yellow');
-    log('  4. После восстановления — запустить снова', 'yellow');
-    log('');
+    console.log(line);
+    console.log('   ПРОПАВШИЕ ФАЙЛЫ:');
+    console.log(line);
+    for (const f of missing) console.log('  ✗ ' + f);
+    console.log('');
+    console.log('  Восстановление: git checkout HEAD -- <file> · либо из архива U.N.A.');
+    console.log('  После изменения дерева: node scripts/sync-manifest.js');
+    console.log('');
     process.exit(1);
   }
 
   if (extra.length > 0) {
-    log('═══════════════════════════════════════════════════════════', 'yellow');
-    log('  ⚠ ЛИШНИЕ ФАЙЛЫ (не в MANIFEST.md):', 'yellow');
-    log('═══════════════════════════════════════════════════════════', 'yellow');
-    for (const file of extra) {
-      log(`  + ${file}`, 'yellow');
-    }
-    log('');
-    log('  Если это новые файлы — добавьте их в MANIFEST.md', 'cyan');
-    log('  Если временные — удалите', 'cyan');
-    log('');
+    console.log(line);
+    console.log('   ЛИШНИЕ ФАЙЛЫ (в дереве, но не в манифесте):');
+    console.log(line);
+    for (const f of extra) console.log('  + ' + f);
+    console.log('');
+    console.log('  Если это новые файлы проекта — node scripts/sync-manifest.js (обновит манифест)');
+    console.log('  Если это артефакты — добавьте правило исключения в scripts/sync-manifest.js');
+    console.log('');
   }
 
-  log('═══════════════════════════════════════════════════════════', 'green');
-  log('  ✓ Все файлы проекта на месте!', 'green');
-  log('═══════════════════════════════════════════════════════════\n', 'green');
-
+  console.log(line);
+  console.log('  ✓ Все файлы проекта на месте!' + (extra.length === 0 ? ' (лишних нет)' : ''));
+  console.log(line + '\n');
   process.exit(0);
 }
 
 try {
   main();
 } catch (e) {
-  log(`\n✗ Критическая ошибка: ${e.message}`, 'red');
+  console.log('\n✗ Критическая ошибка: ' + e.message);
   console.error(e);
   process.exit(2);
 }

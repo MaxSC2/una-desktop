@@ -26,7 +26,8 @@
     "package:mac": "npm run prepackage && npm run build && electron-builder --mac --arm64",
     "postinstall": "electron-builder install-app-deps",
     "check": "node scripts/pre-build-check.js",
-    "manifest": "node scripts/verify-manifest.js"
+    "manifest": "node scripts/verify-manifest.js",
+    "manifest:sync": "node scripts/sync-manifest.js"
   },
   "dependencies": {
     "@nut-tree-fork/nut-js": "^4.2.6",

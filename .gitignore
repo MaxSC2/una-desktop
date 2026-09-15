@@ -57,3 +57,6 @@ package.json.bak
 nul
 # Архивы бэкапов
 *.zip
+
+# Временный файл сообщения коммита
+commit-msg.txt
