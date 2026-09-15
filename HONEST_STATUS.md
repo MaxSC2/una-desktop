@@ -10,6 +10,13 @@
 > Ревизия M6: Memory Manager (скоринг-гейт → L1 store → L2 Graphiti, maintenance, elevate) +
 > pending-action records для подтверждений (детерминированный digest действия, TTL 10 минут,
 > origin-канал, одноразовое погашение после исполнения).
+>
+> **Phase 0 — Stabilization & Architectural Baseline: VERIFIED** (2026-09-15, коммит `6ff77d4`).
+> Жизненный цикл фаз: Phase 1 — Core Architecture Completion → Phase 2 — Memory & Continuity →
+> Phase 3 — Agency & Task Runtime → Phase 4 — Presence & Companion → Phase 5 — Environment / Living OS.
+> M1–M6 — архивные метки ревизий статуса (DEC-009 в `docs/research/decision-log.md`).
+> Артефакты Phase 0: `docs/research/decision-log.md`, `docs/research/implementation-map.md`,
+> `docs/research/UNA_Deep_Research_v4.1_2026-09-15.md`, `docs/JOURNAL.md`.
 
 ---
 
@@ -198,6 +205,8 @@ Graphiti MCP включается автодетектом (M3) и провер�
 M6: Memory Manager — скоринг-гейт, L1-стор, L2-Graphiti ретейн, идемпотентная maintenance, элевация
 отклонённых кандидатов; подтверждения опасных действий — pending-action records (digest действия,
 TTL 10 минут, origin, одноразовое погашение после исполнения).
+Phase 0 закрыт и верифицирован (`6ff77d4`): архитектурная память оформлена (decision-log DEC-001…010,
+implementation-map по Evidence), Deep Research v4.1 сохранён в `docs/research/`. Следующая фаза — Phase 1.
 Не интегрированы: multi-agent, autonomous loop, skills.
 
 ---

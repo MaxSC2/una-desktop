@@ -9,7 +9,7 @@
 |---|---|---|---|
 | Диалог и tools | `main.ts` → `executeToolLoop` → registry/MCP | Подключено | Open Interpreter, Pydantic AI — только паттерны contracts/execution |
 | Маршрутизация | L0 fast/direct + L1 semantic/regex + L2 LLM в `router.ts` | Подключено | Alice, Stagehand — сравнить паттерны, не заменять |
-| Память | SQLite, FTS5, RLM, Pods, graph adapter; M6 manager в активной разработке | Нестабильно | Hermes, opencode-memory, Letta, Graphiti |
+| Память | SQLite, FTS5, RLM, Pods, graph adapter; M6 manager закрыт (`13e667f`, 44 теста) | VERIFIED (Phase 0) | Hermes, opencode-memory, Letta, Graphiti |
 | MCP | свой `mcp-adapter.ts`, подключается из `main.ts` | Подключено | MCP TypeScript SDK — нормализовать контракт позже |
 | Web tools | search/fetch/download с отдельными handlers | Подключено | Playwright — детерминированный browser layer |
 | GUI automation | Nut.js-oriented handlers и `gui-automation.ts` | Частично; E2E не подтверждён | pywinauto, OmniParser — будущие POC |
@@ -17,15 +17,16 @@
 | Presence | React, Rive, overlay, avatar components | Частично | AIRI, DesktopFriends, Live2D projects |
 | Background behavior | life loop, proactive engine, background monitor, attention manager | Подключено, требует продуктовых правил | ActivityWatch, Toolfish |
 | Ресурсы | VRAM gate, resource manager, game detection | Подключено | llama.cpp, Glances; vLLM/SGLang не подходят этому ПК сейчас |
-| Security | command classifier, protected-file policy, SSRF guard, confirmation UI | Есть критичные пробелы | PyRIT, 1Password shell plugins |
+| Security | command classifier, protected-file policy, SSRF guard, pending-action confirmations (TTL/origin/one-shot, `03101a3`) | Критичный пробел закрыт (Phase 0); остаются injection-фикстуры (Pass 1) | PyRIT, 1Password shell plugins |
 
 ## Критические факты перед расширением
 
-1. В рабочем дереве есть незакоммиченный M6 memory manager. Он меняет storage и tool loop; любые
-   сравнения памяти с внешними проектами должны стать входом в его тесты, а не поводом добавлять
-   ещё одну memory-библиотеку.
-2. Подтверждения опасных действий требуют отдельного аудита жизненного цикла token/pending action.
-   Новый browser или GUI tool нельзя включать до исправления этого контракта.
+1. ~~В рабочем дереве есть незакоммиченный M6 memory manager.~~ → **решено 2026-09-15 (Phase 0):**
+   закоммичен (`13e667f`), 44 теста менеджера; сравнения памяти с внешними проектами — вход в Pass 2,
+   а не повод добавлять ещё одну memory-библиотеку.
+2. ~~Подтверждения опасных действий требуют отдельного аудита жизненного цикла token/pending action.~~
+   → **решено 2026-09-15 (Phase 0):** pending-action records (TTL 10 мин, origin, одноразовость, `03101a3`).
+   Блокировка browser/GUI tool снята; POC только Playwright (Pass 3).
 3. Runtime уже содержит много архитектурных модулей. Для каждого внешнего кандидата действует
    правило «adapter или pattern, не второй orchestration core».
 
