@@ -23,10 +23,7 @@ import { saveFact, recallFacts } from '../memory/store';
 import { analyzeImage } from './llm';
 import { classifyCommand } from '../safety/classifier';
 import { parseMemoryTokens, executeMemoryTokens, warmCacheAddMessage } from '../memory/rlm';
-import { detectIntent, filterToolsByIntent } from './intent';
-import { tryFastCommand } from './fast-path';
-import { detectSemanticIntent, initSemanticRouter, SEMANTIC_CONFIDENCE_THRESHOLD } from './semantic-router';
-import { resolveMode, filterToolsByMode, getModeConfig } from './modes';
+import { routeMessage } from './router';
 import { reviewResponse } from './self-review';
 import { detectCorrection, recordInteraction, learnFromMessage } from './meta-learning';
 
@@ -91,56 +88,64 @@ export async function executeToolLoop(options: ToolLoopOptions): Promise<ToolLoo
     signal,
   } = options;
 
-  // Определяем намерение и режим выполнения
-  // L1: semantic router (embeddings) → fallback на regex
-  const semantic = await detectSemanticIntent(userMessage);
-  const intent =
-    semantic.confidence >= SEMANTIC_CONFIDENCE_THRESHOLD
-      ? semantic.intent
-      : detectIntent(userMessage);
-  const mode = resolveMode(intent);
+  // Router (M5): единая лестница L0-fast → L0-direct → L1-semantic → L1-regex → L2-llm.
+  const route = await routeMessage(userMessage, toolContext);
 
-  // L0 fast-path: детерминированные команды («открой Discord») без LLM.
-  const fastReply = await tryFastCommand(userMessage, toolContext);
-  if (fastReply !== null) {
-    console.log('[ToolLoop] Fast-path hit — LLM skipped');
-    warmCacheAddMessage('user', userMessage);
-    warmCacheAddMessage('assistant', fastReply);
+  if (route.direct) {
+    const { direct } = route;
+    console.log(`[ToolLoop] ${route.layer} hit (${route.reason}) — LLM skipped`);
+
+    if (direct.fastPath) {
+      // Fast-path: сохраняем обмен в WARM-кэш и историю как псевдо-tool.
+      warmCacheAddMessage('user', userMessage);
+      warmCacheAddMessage('assistant', direct.text);
+      return {
+        finalText: direct.text,
+        toolCallHistory: [
+          {
+            name: '_fast_path',
+            args: direct.args,
+            result: direct.result,
+            timestamp: new Date().toISOString(),
+          },
+        ],
+        pendingConfirmation: null,
+        maxRoundsHit: false,
+        messages: [
+          { role: 'user', content: userMessage },
+          { role: 'assistant', content: direct.text },
+        ],
+        provider: undefined,
+      };
+    }
+
+    // L0-direct: детерминированный инструмент отработал без LLM.
+    if (onChunk) {
+      onChunk({ type: 'tool_start', tools: [direct.tool] });
+      onChunk({ type: 'tool_done' });
+    }
     return {
-      finalText: fastReply,
+      finalText: direct.text,
       toolCallHistory: [
         {
-          name: '_fast_path',
-          args: {},
-          result: { success: true, data: { fast: true } },
+          name: direct.tool,
+          args: direct.args,
+          result: direct.result,
           timestamp: new Date().toISOString(),
         },
       ],
       pendingConfirmation: null,
       maxRoundsHit: false,
-      messages: [
-        { role: 'user', content: userMessage },
-        { role: 'assistant', content: fastReply },
-      ],
+      messages: [],
       provider: undefined,
     };
   }
-  if (semantic.confidence >= SEMANTIC_CONFIDENCE_THRESHOLD) {
-    console.log(`[ToolLoop] Semantic intent: ${intent} (${semantic.confidence.toFixed(2)}), candidates: ${semantic.scores.map((s) => `${s.intent}:${s.score.toFixed(2)}`).join(', ')}`);
-  }
 
-  // L0: детерминированный быстрый путь — простые команды без LLM (< 50 мс, ноль GPU)
-  const direct = await tryDirectCommand(userMessage, toolContext);
-  if (direct) {
-    if (onChunk) {
-      onChunk({ type: 'tool_start', tools: direct.toolCallHistory.map((t) => t.name) });
-      onChunk({ type: 'tool_done' });
-    }
-    return direct;
-  }
-
-  let currentTools = filterToolsByMode(getToolDefinitions(), mode);
-  console.log(`[ToolLoop] Intent: ${intent}, Mode: ${mode}, tools: ${currentTools.length}/${getToolDefinitions().length}`);
+  const { intent, mode } = route;
+  let currentTools = route.tools;
+  console.log(
+    `[ToolLoop] ${route.layer}: intent=${intent}, mode=${mode}, tools: ${currentTools.length}/${getToolDefinitions().length} (${route.reason})`
+  );
 
   const messages: ChatMessage[] = [
     { role: 'system', content: systemPrompt },
@@ -385,99 +390,6 @@ export async function executeToolLoop(options: ToolLoopOptions): Promise<ToolLoo
     messages,
     provider,
   };
-}
-
-/**
- * L0 — детерминированный pre-router.
- * Простые команды («открой Discord», «сколько памяти») выполняются
- * напрямую через инструменты, без запуска LLM.
- * Отклик < 50 мс, ноль нагрузки на GPU.
- */
-const APP_ALIASES: Record<string, string> = {
-  'браузер': 'chrome',
-  'хром': 'chrome',
-  'гугл': 'chrome',
-  'телеграм': 'telegram',
-  'telegram': 'telegram',
-  'tg': 'telegram',
-  'дискорд': 'discord',
-  'discord': 'discord',
-  'код': 'code',
-  'vscode': 'code',
-  'visual studio': 'code',
-  'блокнот': 'notepad',
-  'notepad': 'notepad',
-  'калькулятор': 'calc',
-  'calc': 'calc',
-  'проводник': 'explorer',
-  'explorer': 'explorer',
-  'паинт': 'paint',
-  'paint': 'paint',
-};
-
-async function tryDirectCommand(
-  userMessage: string,
-  ctx: ToolContext
-): Promise<ToolLoopResult | null> {
-  const t = userMessage.trim();
-  if (!t || t.length > 80) return null;
-
-  const mkResult = (
-    name: string,
-    args: Record<string, unknown>,
-    result: ToolResult,
-    finalText: string
-  ): ToolLoopResult => ({
-    finalText,
-    toolCallHistory: [
-      { name, args, result, timestamp: new Date().toISOString() },
-    ],
-    pendingConfirmation: null,
-    maxRoundsHit: false,
-    messages: [],
-    provider: undefined,
-  });
-
-  // «открой / запусти X»
-  const openMatch = t.match(
-    /^(?:открой|откройте|запусти|запустите|запускай|open|launch|start)\s+(?:пожалуйста\s+)?(.{2,40})$/i
-  );
-  if (openMatch) {
-    const raw = openMatch[1]
-      .trim()
-      .replace(/^(?:приложение|программу|софт|программы?)\s*/, '')
-      .toLowerCase();
-    if (!raw) return null;
-    const app = APP_ALIASES[raw] ?? raw;
-    const result = await dispatchTool('open_app', { app_name: app }, ctx);
-    const finalText = result.success
-      ? `Открываю «${app}».`
-      : `Не нашла «${app}» в системе. Скажи точное имя приложения — попробую ещё раз.`;
-    return mkResult('open_app', { app_name: app }, result, finalText);
-  }
-
-  // «сколько памяти / оперативки / загрузка CPU»
-  if (
-    /(?:оперативн|памят|ram|загрузк|cpu|процессор)/i.test(t) &&
-    !/код|скрипт|напиши|найди файл/i.test(t)
-  ) {
-    const result = await dispatchTool('system_info', {}, ctx);
-    if (result.success && result.data) {
-      const d = result.data as Record<string, any>;
-      const mem = d?.memory;
-      const memPct = typeof mem?.used_pct === 'number' ? `${mem.used_pct}%` : '?';
-      const cores = d?.cpu_cores ?? '?';
-      const platform = d?.platform_name ?? d?.platform ?? '?';
-      return mkResult(
-        'system_info',
-        {},
-        result,
-        `Система: ${platform}, ядер CPU: ${cores}, занято RAM: ${memPct}.`
-      );
-    }
-  }
-
-  return null;
 }
 
 /**

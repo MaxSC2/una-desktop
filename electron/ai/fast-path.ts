@@ -4,8 +4,8 @@
  * «Открой Discord» не должно будить модель:
  *   текст → matchFastCommand → tool → готовый ответ (десятки мс вместо секунд).
  *
- * Если команда не распознана — возвращаем null, и запрос уходит в обычный
- * tool-loop (LLM). Это первый уровень маршрутизации, а не замена роутера.
+ * Если команда не распознана — возвращаем null, и запрос уходит в router
+ * (L0-direct → L1 → L2). Это первый уровень маршрутизации, а не замена роутера.
  */
 
 import { dispatchTool, ToolContext, ToolResult } from '../tools';
@@ -58,6 +58,16 @@ export interface FastCommandMatch {
   app: string;
 }
 
+/** Результат выполнения fast-команды — то, что нужно роутеру и tool-loop. */
+export interface FastCommandOutcome {
+  /** Готовый текст ответа (LLM не вызывался). */
+  text: string;
+  tool: string;
+  args: Record<string, unknown>;
+  result: ToolResult;
+  fastPath: true;
+}
+
 /**
  * Чистое распознавание без побочных эффектов (удобно тестировать).
  * Возвращает null, если это не fast-path — тогда работает обычный LLM-путь.
@@ -79,10 +89,13 @@ export function matchFastCommand(text: string): FastCommandMatch | null {
 }
 
 /**
- * Выполняет быструю команду, если распознана.
- * Возвращает готовый текст ответа (LLM не вызывался) или null.
+ * Выполняет быструю команду и возвращает полный результат (для роутера).
+ * Возвращает null, если команда не распознана или её нельзя выполнить детерминированно.
  */
-export async function tryFastCommand(text: string, ctx: ToolContext): Promise<string | null> {
+export async function runFastCommand(
+  text: string,
+  ctx: ToolContext
+): Promise<FastCommandOutcome | null> {
   const match = matchFastCommand(text);
   if (!match) return null;
 
@@ -93,8 +106,18 @@ export async function tryFastCommand(text: string, ctx: ToolContext): Promise<st
     result = { success: false, error: (e as Error).message };
   }
 
-  if (result.success) {
-    return `Открываю ${match.app}.`;
-  }
-  return `Не удалось открыть ${match.app}: ${result.error ?? 'неизвестная ошибка'}`;
+  const text2 = result.success
+    ? `Открываю ${match.app}.`
+    : `Не удалось открыть ${match.app}: ${result.error ?? 'неизвестная ошибка'}`;
+
+  return { text: text2, tool: match.tool, args: match.args, result, fastPath: true };
+}
+
+/**
+ * Совместимый хелпер: выполняет быструю команду и возвращает только текст ответа.
+ * Возвращает null, если команда не распознана (тогда работает обычный LLM-путь).
+ */
+export async function tryFastCommand(text: string, ctx: ToolContext): Promise<string | null> {
+  const outcome = await runFastCommand(text, ctx);
+  return outcome ? outcome.text : null;
 }

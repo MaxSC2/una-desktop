@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-15T12:56:33.104Z",
+  "generatedAt": "2026-09-15T14:05:11.953Z",
   "note": "Автогенерируется scripts/sync-manifest.js. Единый источник правды для verify-manifest.js.",
   "excludeDirs": [
     "node_modules/",
@@ -36,7 +36,7 @@
     "desktop.ini",
     "scripts/manifest-files.json"
   ],
-  "total": 240,
+  "total": 244,
   "files": [
     ".cursorrules",
     ".env.example",
@@ -133,6 +133,7 @@
     "electron/ai/proactive.ts",
     "electron/ai/resource-manager.ts",
     "electron/ai/rollback.ts",
+    "electron/ai/router.ts",
     "electron/ai/self-review.ts",
     "electron/ai/semantic-router.ts",
     "electron/ai/skills.ts",
@@ -193,6 +194,8 @@
     "scripts/apply-m4-audit-doc.mjs",
     "scripts/apply-m4-briefing.mjs",
     "scripts/apply-m4-honesty.mjs",
+    "scripts/apply-m5-router.mjs",
+    "scripts/apply-manifest-doc-fix.mjs",
     "scripts/extract_sprites.py",
     "scripts/m3-smoke-mcp.mjs",
     "scripts/pre-build-check.js",
@@ -269,6 +272,7 @@
     "tailwind.config.js",
     "tests/ai/code-tools-integration.test.ts",
     "tests/ai/code-tools.test.ts",
+    "tests/ai/router.test.ts",
     "tests/ai/tool-loop.test.ts",
     "tests/ai/web-tools-integration.test.ts",
     "tests/ai/web-tools.test.ts",

@@ -5,7 +5,7 @@
 > Если файл пропал — он должен быть восстановлен.
 >
 > **Последнее обновление:** v40 (15 сентября 2026, M4) — сверено с деревом
-> **Всего файлов:** 240
+> **Всего файлов:** 244
 > **Проверка:** `node scripts/verify-manifest.js`
 >
 > ⚠️ Список файлов генерируется: `node scripts/sync-manifest.js` → `scripts/manifest-files.json`
@@ -397,7 +397,7 @@ git push -u origin main
 > Источник правды: `scripts/manifest-files.json`. Обновление: `node scripts/sync-manifest.js`.
 > Не редактировать вручную — блок перезаписывается.
 
-> **Всего файлов:** 240 · **Сгенерировано:** 2026-09-15
+> **Всего файлов:** 244 · **Сгенерировано:** 2026-09-15
 
 ```
 ## .github (2)
@@ -486,7 +486,7 @@ git push -u origin main
   docs/SECURITY.md
   docs/UNA_Research.pdf
 
-## electron (80)
+## electron (81)
   electron/agents/index.ts
   electron/agents/rlm-extensions.ts
   electron/ai/README.md
@@ -516,6 +516,7 @@ git push -u origin main
   electron/ai/proactive.ts
   electron/ai/resource-manager.ts
   electron/ai/rollback.ts
+  electron/ai/router.ts
   electron/ai/self-review.ts
   electron/ai/semantic-router.ts
   electron/ai/skills.ts
@@ -571,11 +572,13 @@ git push -u origin main
 ## prompts (1)
   prompts/system.ts
 
-## scripts (13)
+## scripts (15)
   scripts/apply-m3-mcp.mjs
   scripts/apply-m4-audit-doc.mjs
   scripts/apply-m4-briefing.mjs
   scripts/apply-m4-honesty.mjs
+  scripts/apply-m5-router.mjs
+  scripts/apply-manifest-doc-fix.mjs
   scripts/extract_sprites.py
   scripts/m3-smoke-mcp.mjs
   scripts/pre-build-check.js
@@ -648,9 +651,10 @@ git push -u origin main
   src/main.tsx
   src/styles/index.css
 
-## tests (8)
+## tests (9)
   tests/ai/code-tools-integration.test.ts
   tests/ai/code-tools.test.ts
+  tests/ai/router.test.ts
   tests/ai/tool-loop.test.ts
   tests/ai/web-tools-integration.test.ts
   tests/ai/web-tools.test.ts

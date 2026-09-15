@@ -223,7 +223,7 @@ export async function detectSemanticIntent(text: string): Promise<SemanticResult
 
     const top = scores[0];
     return {
-      intent: top.score > 0.5 ? top.intent : 'unknown',
+      intent: top.score >= SEMANTIC_CONFIDENCE_THRESHOLD ? top.intent : 'unknown',
       confidence: top.score,
       scores: scores.slice(0, 3),
     };
