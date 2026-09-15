@@ -124,7 +124,7 @@ U.N.A.  (сущность, живёт вне интерфейса)
 | `docs/MEMORY.md`, `docs/CODE.md` | Как устроена память / код |
 | `docs/SECURITY.md` | Модель угроз |
 | `docs/GRAPHITI_MEMORY.md` | Как подключить Graphiti как память |
-| `TASK_BOARD.md` | Доска задач (что взято/сделано) |
+| `docs/history/planning/TASK_BOARD_2026-07.md` | Архивная доска задач (июль 2026); не отражает текущий backlog |
 
 > ⚠️ Некоторые доки **устарели** (AGENTS.md говорит про qwen3:4b и gemma — сейчас дефолт
 > `qwen3:1.7b`; `.cursorrules` видит 19 инструментов — стало 25). Сверяйтесь с кодом.

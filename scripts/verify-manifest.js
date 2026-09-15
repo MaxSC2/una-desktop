@@ -29,7 +29,7 @@ const FALLBACK_FILES = [
   'prompts/system.ts',
 ];
 
-const DEFAULT_DIRS = ['node_modules/', '.git/', 'dist/', 'dist-electron/', 'release/', 'out/', 'build/', 'coverage/', 'test-downloads/', '.vscode/', '.idea/', '.una/'];
+const DEFAULT_DIRS = ['node_modules/', '.git/', 'dist/', 'dist-electron/', 'release/', 'out/', 'build/', 'coverage/', 'test-downloads/', '.vscode/', '.idea/', '.una/', '.agents/', '.kilo/'];
 const DEFAULT_SUFFIXES = ['.log', '.zip', '.db', '.db-journal', '.db-wal', '.db-shm', '.bak', '.tmp', '.swp', '.swo'];
 const DEFAULT_NAMES = ['package-lock.json', 'package.json.bak', 'commit-msg.txt', 'nul', 'Thumbs.db', 'desktop.ini', 'scripts/manifest-files.json'];
 
