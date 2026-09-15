@@ -29,7 +29,7 @@
 | Тесты | `vitest run` | ✅ 240 / 240 pass |
 | Сборка рендерера | `vite build` | ✅ собирается (1.45 MB JS, warning про размер чанка) |
 | Инструменты | `ls electron/tools/definitions` | 25 инструментов |
-| Манифест файлов | `node scripts/verify-manifest.js` | ✅ 252/252 на месте, 0 пропущено, 0 лишних |
+| Манифест файлов | `node scripts/verify-manifest.js` | ✅ 267/267 на месте, 0 пропущено, 0 лишних |
 | MCP (graphiti) | `node scripts/m3-smoke-mcp.mjs` | ✅ initialize + tools/list, 3 tools |
 | Pre-build check | `node scripts/pre-build-check.js` | ✅ 0 ошибок, 2 warning (robotjs optional) |
 | Интеграции | `grep` по импортам `main.ts` | см. ниже |
