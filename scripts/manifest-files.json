@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-15T18:02:08.137Z",
+  "generatedAt": "2026-09-15T18:59:37.448Z",
   "note": "Автогенерируется scripts/sync-manifest.js. Единый источник правды для verify-manifest.js.",
   "excludeDirs": [
     "node_modules/",
@@ -38,7 +38,7 @@
     "desktop.ini",
     "scripts/manifest-files.json"
   ],
-  "total": 252,
+  "total": 262,
   "files": [
     ".cursorrules",
     ".env.example",
@@ -99,6 +99,15 @@
     "docs/MENTOR_BRIEFING.md",
     "docs/SECURITY.md",
     "docs/UNA_Research.pdf",
+    "docs/design/GRAMMAR_INTERACTION_v0.1.md",
+    "docs/design/GRAMMAR_MOTION_v0.1.md",
+    "docs/design/GRAMMAR_VISUAL_v0.1.md",
+    "docs/design/UNA_PRESENCE_DESIGN_v0.1.md",
+    "docs/design/wireframes/01-idle.md",
+    "docs/design/wireframes/02-speaking.md",
+    "docs/design/wireframes/03-working.md",
+    "docs/design/wireframes/04-sleeping.md",
+    "docs/design/wireframes/05-system-aware.md",
     "docs/history/README.md",
     "docs/history/audits/AUDIT_REPORT_2026-06-29.md",
     "docs/history/planning/TASK_BOARD_2026-07.md",
@@ -107,6 +116,7 @@
     "docs/research/catalog.md",
     "docs/research/decision-log.md",
     "docs/research/implementation-map.md",
+    "docs/research/phase-1-scope.md",
     "docs/research/research-backlog.md",
     "docs/research/una-gap-map.md",
     "docs/research/verification-log.md",

@@ -72,7 +72,7 @@ tests/      Unit и integration tests.
 > Источник правды: `scripts/manifest-files.json`. Обновление: `node scripts/sync-manifest.js`.
 > Не редактировать вручную — блок перезаписывается.
 
-> **Всего файлов:** 252 · **Сгенерировано:** 2026-09-15
+> **Всего файлов:** 262 · **Сгенерировано:** 2026-09-15
 
 ```
 ## .github (2)
@@ -141,7 +141,7 @@ tests/      Unit и integration tests.
   assets/sprites/una_32.png
   assets/sprites/una_33.png
 
-## docs (23)
+## docs (33)
   docs/ARCHITECTURE.md
   docs/BACKGROUND.md
   docs/CODE.md
@@ -154,6 +154,15 @@ tests/      Unit и integration tests.
   docs/MENTOR_BRIEFING.md
   docs/SECURITY.md
   docs/UNA_Research.pdf
+  docs/design/GRAMMAR_INTERACTION_v0.1.md
+  docs/design/GRAMMAR_MOTION_v0.1.md
+  docs/design/GRAMMAR_VISUAL_v0.1.md
+  docs/design/UNA_PRESENCE_DESIGN_v0.1.md
+  docs/design/wireframes/01-idle.md
+  docs/design/wireframes/02-speaking.md
+  docs/design/wireframes/03-working.md
+  docs/design/wireframes/04-sleeping.md
+  docs/design/wireframes/05-system-aware.md
   docs/history/README.md
   docs/history/audits/AUDIT_REPORT_2026-06-29.md
   docs/history/planning/TASK_BOARD_2026-07.md
@@ -162,6 +171,7 @@ tests/      Unit и integration tests.
   docs/research/catalog.md
   docs/research/decision-log.md
   docs/research/implementation-map.md
+  docs/research/phase-1-scope.md
   docs/research/research-backlog.md
   docs/research/una-gap-map.md
   docs/research/verification-log.md
