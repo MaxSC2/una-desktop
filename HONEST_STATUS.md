@@ -29,7 +29,7 @@
 | Тесты | `vitest run` | ✅ 234 / 234 pass |
 | Сборка рендерера | `vite build` | ✅ собирается (1.45 MB JS, warning про размер чанка) |
 | Инструменты | `ls electron/tools/definitions` | 25 инструментов |
-| Манифест файлов | `node scripts/verify-manifest.js` | ✅ 249/249 на месте, 0 пропущено, 0 лишних |
+| Манифест файлов | `node scripts/verify-manifest.js` | ✅ 252/252 на месте, 0 пропущено, 0 лишних |
 | MCP (graphiti) | `node scripts/m3-smoke-mcp.mjs` | ✅ initialize + tools/list, 3 tools |
 | Pre-build check | `node scripts/pre-build-check.js` | ✅ 0 ошибок, 2 warning (robotjs optional) |
 | Интеграции | `grep` по импортам `main.ts` | см. ниже |
@@ -43,7 +43,7 @@
 |-----------|--------|---------|
 | TypeScript компиляция | ✅ 0 errors | electron + renderer |
 | Vite build | ✅ | 1.28 MB JS (с syntax highlighter + Rive) |
-| 170 тестов | ✅ все pass | code-tools, web-tools (unit+integration), safety/classifier |
+| 234 теста | ✅ все pass | tools, safety, memory-manager, router, confirmation |
 | Electron entry point | ✅ | `dist-electron/electron/main.js` |
 | npm install | ✅ | с `--legacy-peer-deps` |
 | Pre-build validation | ✅ | `scripts/pre-build-check.js` |
@@ -179,7 +179,7 @@
 
 ---
 
-## 📊 Реальный счёт (по проверенному коду, v30)
+## 📊 Реальный счёт (по проверенному коду, M6)
 
 | Категория | Работает | Частично | Не работает |
 |-----------|----------|----------|-------------|
