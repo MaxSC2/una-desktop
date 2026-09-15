@@ -112,3 +112,18 @@
 - **Evidence:** шапка `implementation-map.md`.
 - **Status:** Accepted.
 - **Superseded by:** —.
+
+## DEC-011 — GitHub как оперативная память: цепочка обновления документации
+
+- **Decision:** изменение архитектурного решения обязано проходить полную цепочку:
+  `decision-log → implementation-map → JOURNAL → commit → push`. GitHub — канал сверки
+  «документ → код → тест → commit», расхождения ловятся по нему, а не по пересказам.
+- **Date:** 2026-09-15.
+- **Problem:** состояние проекта знала только рабочая машина; внешний наблюдатель не мог проверить
+  утверждения без ZIP-архивов.
+- **Chosen:** вся архитектурная/исследовательская документация живёт в репо и пушится в `origin/main`;
+  каждая фаза/ревизия фиксируется хэшем.
+- **Evidence:** `docs/research/*`, `docs/JOURNAL.md`, `HONEST_STATUS.md` — все в git; Phase 0 VERIFIED (`6ff77d4`).
+- **Status:** Accepted.
+- **Superseded by:** —.
+

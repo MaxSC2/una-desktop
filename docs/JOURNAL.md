@@ -57,3 +57,4 @@
 - `docs/research/implementation-map.md` — статусы всех подсистем по Evidence (код → тесты → git): VERIFIED / IMPLEMENTED (wired) / NOT WIRED (agents, autonomous-loop, skills) / PLANNED; сводка системных пробелов
 - решение по шкалам: M1–M6 — архивные ревизии (включая найденную m5 `e9c222b`), фазы — Phase 0–5 (DEC-009)
 - Phase 0: **STATUS: VERIFIED** — фиксируется хэшем коммита этой записи
+- DEC-011: GitHub — оперативная память проекта; правило «decision-log → implementation-map → JOURNAL → commit → push»
