@@ -62,19 +62,27 @@ const files = walk(ROOT, []).sort();
 
 // --- diff с прошлым списком (честность: что изменилось) ---
 let prev = [];
+let prevGeneratedAt = null;
 try {
-  prev = JSON.parse(fs.readFileSync(JSON_PATH, 'utf8')).files ?? [];
+  const parsed = JSON.parse(fs.readFileSync(JSON_PATH, 'utf8'));
+  prev = parsed.files ?? [];
+  prevGeneratedAt = parsed.generatedAt ?? null;
 } catch {
   prev = [];
 }
 const added = files.filter((f) => !prev.includes(f));
 const removed = prev.filter((f) => !files.includes(f));
 
+// generatedAt меняется ТОЛЬКО при изменении списка файлов.
+// Иначе каждый прогон sync давал бы фальшивый diff (шум в git).
+const listChanged = added.length > 0 || removed.length > 0;
+const generatedAt = listChanged || !prevGeneratedAt ? new Date().toISOString() : prevGeneratedAt;
+
 fs.writeFileSync(
   JSON_PATH,
   JSON.stringify(
     {
-      generatedAt: new Date().toISOString(),
+      generatedAt,
       note: 'Автогенерируется scripts/sync-manifest.js. Единый источник правды для verify-manifest.js.',
       excludeDirs: EXCLUDE_DIRS,
       excludeSuffixes: EXCLUDE_SUFFIXES,
@@ -88,7 +96,8 @@ fs.writeFileSync(
 );
 
 // --- MANIFEST.md: счётчик + авто-блок ---
-let md = fs.readFileSync(MANIFEST_MD, 'utf8');
+const prevMd = fs.readFileSync(MANIFEST_MD, 'utf8');
+let md = prevMd;
 const EOL = md.includes('\r\n') ? '\r\n' : '\n';
 
 md = md.replace(/^(> \*\*Всего файлов:\*\*).*$/m, '$1 ' + files.length);
@@ -109,7 +118,7 @@ const autoLines = [
   '> Источник правды: `scripts/manifest-files.json`. Обновление: `node scripts/sync-manifest.js`.',
   '> Не редактировать вручную — блок перезаписывается.',
   '',
-  `> **Всего файлов:** ${files.length} · **Сгенерировано:** ${new Date().toISOString().slice(0, 10)}`,
+  `> **Всего файлов:** ${files.length} · **Сгенерировано:** ${generatedAt.slice(0, 10)}`,
   '',
   '```',
 ];
@@ -131,9 +140,9 @@ if (md.includes(BEGIN) && md.includes(END)) {
   md = md.replace(/\s*$/, '') + EOL + EOL + '---' + EOL + EOL + block + EOL;
 }
 
-fs.writeFileSync(MANIFEST_MD, md);
+if (md !== prevMd) fs.writeFileSync(MANIFEST_MD, md);
 
 console.log(`[sync-manifest] files: ${files.length}`);
 console.log(`[sync-manifest] added: ${added.length}${added.length ? ' -> ' + added.slice(0, 12).join(', ') + (added.length > 12 ? ' …' : '') : ''}`);
 console.log(`[sync-manifest] removed: ${removed.length}${removed.length ? ' -> ' + removed.join(', ') : ''}`);
-console.log('[sync-manifest] wrote scripts/manifest-files.json + MANIFEST.md auto-block');
+console.log('[sync-manifest] ' + (listChanged || md !== prevMd ? 'wrote' : 'no changes:') + ' scripts/manifest-files.json + MANIFEST.md auto-block');

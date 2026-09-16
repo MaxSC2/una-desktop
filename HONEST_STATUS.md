@@ -27,7 +27,7 @@
 | TypeScript (electron) | `tsc -p electron/tsconfig.json --noEmit` | ✅ 0 ошибок |
 | TypeScript (renderer) | `tsc -p tsconfig.json --noEmit` | ✅ 0 ошибок |
 | Тесты | `vitest run` | ✅ 250 / 250 pass (13 файлов) |
-| Сборка рендерера | `vite build` | ✅ собирается (1.45 MB JS, warning про размер чанка) |
+| Сборка рендерера | `vite build` | ✅ собирается (`index.js` 1421 KB одним чанком, warning про размер) |
 | Инструменты | `ls electron/tools/definitions` | 25 инструментов |
 | Манифест файлов | `node scripts/verify-manifest.js` | ✅ 273/273 на месте, 0 пропущено, 0 лишних |
 | MCP (graphiti) | `node scripts/m3-smoke-mcp.mjs` | ✅ initialize + tools/list, 3 tools |
@@ -42,7 +42,7 @@
 | Компонент | Статус | Заметки |
 |-----------|--------|---------|
 | TypeScript компиляция | ✅ 0 errors | electron + renderer |
-| Vite build | ✅ | 1.28 MB JS (с syntax highlighter + Rive) |
+| Vite build | ✅ | `index.js` 1421 KB одним чанком (с syntax highlighter + Rive) |
 | 250 тестов | ✅ все pass | tools, safety, memory-manager, router, confirmation, migration, indirect-injection |
 | Electron entry point | ✅ | `dist-electron/electron/main.js` |
 | npm install | ✅ | с `--legacy-peer-deps` |
@@ -183,7 +183,7 @@
 
 | Категория | Работает | Частично | Не работает |
 |-----------|----------|----------|-------------|
-| Инструменты (24) | 19 (вкл. memory_recall) | 5 (GUI, зависят от nut-js e2e) | 0 |
+| Инструменты (25) | 20 (вкл. memory_recall, create_reminder) | 5 (GUI, зависят от nut-js e2e) | 0 |
 | UI компоненты | 11 | 3 (avatar×2, rive) | 0 |
 | AI/cognition | streaming (2) | — | — |
 | Память | факты + recall (FTS5 + embeddings) | Graphiti (docs, конфиг-заготовка) | — |

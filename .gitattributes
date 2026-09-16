@@ -1,0 +1,22 @@
+# Защита от CRLF-шума: все текстовые файлы — LF в репо и в рабочей копии.
+# Причина: core.autocrlf=true давал предупреждения LF→CRLF в каждом коммите.
+* text=auto eol=lf
+
+# Бинарники — без конвертации
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.icns binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.eot binary
+*.webp binary
+*.riv binary
+*.zip binary
+*.exe binary
+*.dll binary
+*.node binary
