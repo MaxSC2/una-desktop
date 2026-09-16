@@ -89,6 +89,19 @@
 - прод-код не тронут (tests-only); старый `initMemory()` прошёл все сценарии без изменений
 - пробел implementation-map №1 закрыт
 
+**Уроки (ч.2):**
+- **Не доверять отфильтрованному выводу — только независимому перечитыванию persisted-состояния.** Причина: PS-пайплайн (`| Select-Object -First N`, `| Out-String`) может обрывать/искажать вывод процесса (EPIPE), а stdout при `2>&1` идёт в UTF-16, что приводит к ложным/усечённым данным. Отсюда ложный инцидент «sync не сохранил изменения», которого не было.
+- **`npm run build` может виснуть на prebuild (`pre-build-check.js`)** — не признак ошибки кода. Обход: отдельно `npx tsc -p electron/tsconfig.json --noEmit && npx vite build` (при проверке — build ✓ built in 21s).
+- **Параллельные агенты в том же дереве** (UI-дизайнер) создают untracked-файлы → они попадают в verify-manifest как «лишние». Это нормально: их возвращает sync на следующем прогоне; чужую работу не трогаем.
+- **`sync-manifest.js` стал идемпотентным** — не создаёт фальшивый diff, если список файлов не изменился.
+- **Добавлен `.gitattributes`** (`* text=auto eol=lf`) — репо LF-нормализован, предупреждения LF/CRLF исчезли.
+
+**Проверки:** tsc electron 0 · tsc renderer 0 · vitest 250/250 (13 файлов) · vite build ✓ (21s) · manifest 273/273 (0 missing, 1 «лишний» — untracked `docs/design/prototype-scene-vNext/`, работа UI-дизайнера)
+
+**Коммит:** `chore: fixes from review (manifest churn, doc counters, line endings)` — `277a3e4`
+
+**Дальше:** Phase 2 — синхронизировать скоуп с GPT: research-backlog Pass 2 (memory-projects comparison) vs Pass 3 browser/GUI track vs lifecycle «Phase 2 — Memory & Continuity».
+
 **Проверки:** tsc electron 0 · tsc renderer 0 · vitest 240/240 (12 файлов) · `npm run build` ✓ (0 errors, 2 warning — старые, robotjs optional)
 
 **Коммит:** `test(memory): P1-1 миграционные тесты M6 — старая БД, рестарт, FTS`
