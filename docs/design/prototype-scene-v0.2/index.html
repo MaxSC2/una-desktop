@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>U.N.A. Scene Composition v0.2 — Prototype</title>
+<link rel="stylesheet" href="scene.css">
+</head>
+<body data-state="idle" data-zone="center">
+
+<!-- SPACE layer 0: глубина через масштаб и свет, не карточки -->
+<div class="space" aria-hidden="true">
+  <div class="space-horizon"></div>
+  <div class="space-floor"></div>
+  <div class="space-glow"></div>
+  <div class="space-grain"></div>
+</div>
+
+<div class="scene">
+  <!-- C4: header тихий — только U.N.A. + время, без статуса -->
+  <header class="quiet-header">
+    <span class="quiet-logo">U.N.A.</span>
+    <span class="quiet-clock" id="clock">00:36</span>
+  </header>
+
+  <main class="place">
+    <!-- C1: presence area 240px — сущность, не иконка -->
+    <div class="presence" id="presence">
+      <div class="presence-halo" id="halo"></div>
+      <div class="presence-body">
+        <div class="presence-mark" id="mark"></div>
+        <div class="presence-voice" id="voiceBars" hidden>
+          <span></span><span></span><span></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- REACTION: одна presence line -->
+    <p class="utterance" id="utterance" aria-live="polite">Я рядом. Чем займёмся?</p>
+
+    <!-- C2: conversation field — постоянное пространство разговора, без карточки -->
+    <div class="field" id="field" aria-label="Разговор">
+      <p class="field-hint" id="fieldHint">твои слова появятся здесь</p>
+    </div>
+
+    <div class="place-spacer" aria-hidden="true"></div>
+
+    <!-- C3: pocket — единственная карточка, только в WORKING -->
+    <aside class="task" id="task" hidden aria-label="Текущая задача">
+      <div class="task-head">
+        <span class="task-title">Чистка /tmp</span>
+        <span class="task-step" id="taskStep">шаг 1/4</span>
+      </div>
+      <div class="task-bar"><div class="task-fill" id="taskFill"></div></div>
+      <ul class="task-steps" id="taskSteps"></ul>
+      <div class="task-foot">
+        <button type="button" id="logToggle">лог</button>
+        <button type="button" id="taskStop">остановить</button>
+      </div>
+      <pre class="task-log" id="taskLog" hidden></pre>
+    </aside>
+  </main>
+
+  <!-- Dock тихий, две строки. Demo-слоя нет: состояния через 1/2/3, текст, Esc -->
+  <footer class="dock">
+    <nav class="dock-tabs" aria-label="Разделы">
+      <button type="button" class="dock-tab is-active">Chat</button>
+      <button type="button" class="dock-tab">Tasks</button>
+      <button type="button" class="dock-tab">Memory</button>
+      <button type="button" class="dock-tab">System</button>
+    </nav>
+    <div class="dock-row">
+      <span class="dock-mark" aria-hidden="true">◉</span>
+      <input class="dock-input" id="dockInput" type="text" placeholder="Написать Юне…" aria-label="Написать Юне">
+      <button class="dock-btn" id="stopBtn" type="button" hidden aria-label="Остановить">■</button>
+      <button class="dock-btn" id="micBtn" type="button" aria-label="Голосовой ввод">🎙</button>
+      <button class="dock-btn" id="sendBtn" type="button" aria-label="Отправить">→</button>
+    </div>
+  </footer>
+</div>
+
+<script src="scene.js"></script>
+</body>
+</html>

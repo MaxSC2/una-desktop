@@ -1,0 +1,206 @@
+/* Scene v0.2: пространство с присутствием. Токены и примитивы v0.1.
+   BREATHE, LEAN (семантический), SHIFT, APPEAR, GLOW. DIM вне скоупа.
+   Запрещены: карточки кроме pocket, sidebar, виджеты, particles, parallax. */
+
+:root {
+  --una-bg: #0a0e1a;
+  --una-card: rgba(15, 23, 42, 0.6);
+  --una-border: rgba(168, 85, 247, 0.20);
+  --idle: #a855f7;
+  --active: #c084fc;
+  --success: #4ade80;
+  --voice: #22d3ee;
+  --ink: #e2e8f0;
+  --ink-dim: #8b93a7;
+  --ink-faint: #5b6376;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; height: 100%; }
+body {
+  background: var(--una-bg); color: var(--ink);
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  overflow: hidden;
+}
+
+/* SPACE: горизонт + пол + свет + зерно. Глубина масштабом, не карточками */
+.space { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+.space-horizon {
+  position: absolute; left: 0; right: 0; top: 34%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(168,85,247,0.25), transparent);
+}
+.space-floor {
+  position: absolute; left: 0; right: 0; top: 34%; bottom: 0;
+  background:
+    radial-gradient(ellipse 70% 45% at 50% 60%, rgba(168,85,247,0.10), transparent 70%),
+    linear-gradient(transparent 0%, rgba(2,4,10,0.5) 100%);
+}
+.space-glow {
+  position: absolute; inset: 0;
+  background: radial-gradient(circle at 50% 38%, rgba(168,85,247,0.08), transparent 45%);
+}
+.space-grain {
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,0.5) 100%);
+}
+
+.scene { position: relative; z-index: 1; display: flex; flex-direction: column; height: 100vh; max-width: 900px; margin: 0 auto; }
+
+/* C4: тихий header */
+.quiet-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 14px 20px 0; flex: none;
+  font-family: 'JetBrains Mono', Consolas, monospace;
+  font-size: 12px; letter-spacing: 0.2em; color: var(--ink-faint);
+}
+
+/* Место: присутствие → голос → разговор → воздух → dock */
+.place {
+  flex: 1; min-height: 0; display: flex; flex-direction: column;
+  align-items: center; padding: 8px 20px 0;
+}
+.place-spacer { flex: 1; min-height: 24px; }
+
+/* C1: presence area 240px. Сущность держит слот под Rive/Live2D */
+.presence {
+  position: relative; width: 240px; height: 240px; flex: none;
+  display: flex; align-items: center; justify-content: center;
+  transition: transform 500ms ease-in-out; /* SHIFT */
+}
+body[data-zone="right"] .presence { transform: translateX(215px) scale(0.72); }
+.presence-halo {
+  position: absolute; inset: 0; border-radius: 50%;
+  background: radial-gradient(circle, rgba(168,85,247,0.30) 0%, rgba(168,85,247,0.08) 45%, transparent 68%);
+  transition: background 600ms ease; /* GLOW */
+  animation: breathe 4s ease-in-out infinite; /* BREATHE */
+}
+body[data-state="speaking"] .presence-halo {
+  background: radial-gradient(circle, rgba(192,132,252,0.40) 0%, rgba(192,132,252,0.12) 45%, transparent 68%);
+}
+body[data-state="working"] .presence-halo {
+  background: radial-gradient(circle, rgba(192,132,252,0.42) 0%, rgba(192,132,252,0.12) 45%, transparent 68%);
+}
+body[data-state="happy"] .presence-halo {
+  background: radial-gradient(circle, rgba(74,222,128,0.40) 0%, rgba(74,222,128,0.10) 45%, transparent 68%);
+}
+@keyframes breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.03); } }
+
+.presence-body { position: relative; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.presence-mark {
+  width: 56px; height: 56px; border-radius: 12px;
+  background: linear-gradient(135deg, var(--active), var(--idle));
+  box-shadow: 0 0 28px rgba(168,85,247,0.5);
+  animation: lean 3s ease-in-out infinite; /* LEAN семантический */
+}
+@keyframes lean { 0%, 100% { margin-left: -4px; } 50% { margin-left: 4px; } }
+.presence-voice { display: flex; gap: 3px; align-items: flex-end; height: 12px; }
+.presence-voice span { width: 3px; background: var(--voice); border-radius: 2px; animation: voice 0.9s ease-in-out infinite; }
+.presence-voice span:nth-child(2) { animation-delay: 0.15s; }
+.presence-voice span:nth-child(3) { animation-delay: 0.3s; }
+@keyframes voice { 0%, 100% { height: 4px; } 50% { height: 12px; } }
+
+/* Голос Юны: одна строка */
+.utterance {
+  margin: 6px 0 0; min-height: 1.6em; text-align: center;
+  font-size: 18px; font-style: italic;
+  animation: appear 400ms ease; /* APPEAR */
+}
+@keyframes appear { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes blink { 50% { opacity: 0; } }
+
+/* C2: CONVERSATION FIELD — фиксированный коридор presence→dock.
+   Без карточек, рамок, фона, скролл-контейнера, аватаров, меток.
+   Вертикальный поток; USER — левая колонка; YUNA — правая; gaps стабильны. */
+.field {
+  width: 100%; max-width: 620px; margin-top: 14px;
+  min-height: 168px; /* коридор фиксирован: новое сообщение всегда внизу */
+  display: flex; flex-direction: column; justify-content: flex-end; gap: 8px;
+  mask-image: linear-gradient(transparent 0%, black 18%);
+}
+.field-hint {
+  margin: 0; text-align: center; font-size: 12px; letter-spacing: 0.06em;
+  color: var(--ink-faint); opacity: 0.7;
+}
+.field-row {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+  margin: 0; animation: appear 400ms ease;
+}
+.field-cell {
+  margin: 0; font-size: 15px; line-height: 1.55;
+  min-width: 0; overflow-wrap: break-word; /* длинные сообщения не ломают коридор */
+}
+.field-user { grid-column: 1; color: var(--ink-dim); text-align: left; }
+.field-yuna { grid-column: 2; color: var(--ink); text-align: right; }
+/* Старые ряды уходят вверх и становятся вторичными */
+.field-row.is-old .field-cell { opacity: 0.55; }
+.field-row.is-older .field-cell { opacity: 0.32; }
+/* Активный ряд — максимальный контраст */
+.field-row.is-active .field-cell { opacity: 1; }
+/* Индикатор ответа живёт внутри будущей реплики, не рядом */
+.field-typing { color: var(--ink-faint); font-style: italic; font-size: 13px; }
+/* Курсор принадлежит самой реплике */
+.field-text.field-cursor::after { content: '▌'; color: var(--active); animation: blink 1s steps(2) infinite; }
+
+/* Внимание к вводу: наклон области к dock + halo ближе. Без бейджей. */
+body[data-att="input"] .presence { transform: translateY(10px); }
+body[data-att="input"] .presence-halo { opacity: 0.85; }
+body[data-state="speaking"][data-att="input"] .presence { transform: translateY(10px); }
+
+/* C3: pocket — единственная карточка сцены, только WORKING */
+.task {
+  position: absolute; right: 24px; top: 30%;
+  width: 250px; background: var(--una-card);
+  border: 1px solid var(--una-border); border-radius: 10px;
+  padding: 10px 12px; font-size: 12px;
+  animation: appear 400ms ease;
+}
+.task[hidden] { display: none; }
+.task-head { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.task-step { color: var(--ink-dim); font-family: 'JetBrains Mono', Consolas, monospace; font-size: 11px; }
+.task-bar { height: 4px; border-radius: 2px; background: rgba(148,163,184,0.2); margin-bottom: 8px; }
+.task-fill { height: 100%; width: 0; border-radius: 2px; background: var(--active); transition: width 500ms ease; }
+.task-steps { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.task-steps li { color: var(--ink-dim); font-family: 'JetBrains Mono', Consolas, monospace; font-size: 11px; }
+.task-steps li.done { color: var(--success); }
+.task-steps li.current { color: var(--ink); animation: blink 1.5s ease-in-out infinite; }
+.task-foot { display: flex; justify-content: space-between; gap: 8px; }
+.task-foot button {
+  background: transparent; border: 1px solid var(--una-border); border-radius: 6px;
+  color: var(--ink-dim); font-size: 11px; padding: 4px 8px; cursor: pointer;
+  font-family: 'JetBrains Mono', Consolas, monospace;
+}
+.task-log {
+  margin: 8px 0 0; padding: 8px; font-size: 10px; color: var(--ink-dim);
+  background: rgba(0,0,0,0.35); border-radius: 6px; white-space: pre-wrap;
+  font-family: 'JetBrains Mono', Consolas, monospace;
+}
+
+/* Dock тихий, две строки */
+.dock { flex: none; padding: 10px 20px 14px; display: flex; flex-direction: column; gap: 8px; }
+.dock-tabs { display: flex; gap: 2px; }
+.dock-tab {
+  background: transparent; border: none; color: var(--ink-faint);
+  font-size: 12px; padding: 4px 10px; cursor: pointer; letter-spacing: 0.04em;
+}
+.dock-tab.is-active { color: var(--ink-dim); }
+.dock-row { display: flex; gap: 8px; align-items: center; }
+.dock-mark { color: var(--ink-faint); font-size: 12px; }
+.dock-input {
+  flex: 1; background: transparent; border: none;
+  border-bottom: 1px solid rgba(139,147,167,0.35);
+  color: var(--ink); font-size: 14px; padding: 8px 2px; outline: none;
+}
+.dock-input:focus { border-bottom-color: var(--idle); }
+.dock-input::placeholder { color: var(--ink-faint); }
+.dock-btn {
+  background: transparent; border: none; color: var(--ink-faint);
+  font-size: 15px; padding: 6px 8px; cursor: pointer;
+}
+.dock-btn:hover { color: var(--ink); }
+
+@media (prefers-reduced-motion: reduce) {
+  .presence-halo, .presence-mark, .presence-voice span { animation: none; }
+  .presence { transition-duration: 200ms; }
+  .utterance, .field-row, .task { animation-duration: 200ms; }
+}
