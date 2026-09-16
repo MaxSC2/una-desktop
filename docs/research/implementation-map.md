@@ -7,7 +7,7 @@
 
 **Статусы:** `VERIFIED` (работает, покрыто проверками) · `IMPLEMENTED` (в runtime, но без собственных тестов/E2E — пробел указан) · `NOT WIRED` (код есть, в runtime не подключён) · `PLANNED` (в backlog, не начато) · `RESEARCHED` (изучено, решения нет) · `REJECTED`.
 
-**Последняя верификация:** 2026-09-15 — tsc 0 (electron+renderer), vitest 240/240 (12 файлов), `npm run build` ✓. Коммиты среза: `e9c222b`(m5) → `91be822` → `13e667f`(m6) → `52111f7` → `03101a3` → P1-1 (migration.test.ts, +6).
+**Последняя верификация:** 2026-09-16 — tsc 0 (electron+renderer), vitest 250/250 (13 файлов), `npm run build` ✓, manifest 273/273 (0 пропущено, 0 лишних). Коммиты среза: `e9c222b`(m5) → `91be822` → `13e667f`(m6) → `52111f7` → `03101a3` → `3206003`(P1-1) → P1-2 (indirect-injection.test.ts, +10).
 
 **Правила обновления:** статус меняется только при новом Evidence (прогон тестов, новый коммит, wiring). При сомнении — статус ниже по лестнице. Поле «Пробелы → шаг» — вход в JOURNAL/бэклог.
 
@@ -38,7 +38,7 @@
 | Safety classifier | VERIFIED | classifier.test.ts | safety/classifier.ts | — | — |
 | Pending-action confirmations | VERIFIED | confirmation.test.ts (12): TTL/origin/one-shot | tools/helpers.ts, ai/config.ts, main.ts | M6 (`03101a3`) | origin telegram/autonomous пока неактивны (только chat) |
 | SSRF guard / env filter / protected files | VERIFIED | HONEST_STATUS; classifier | tools/*, safety/* | — | — |
-| Injection fixtures (PyRIT-style) | PLANNED | — | — | Pass 1 | не начато |
+| Injection fixtures (PyRIT-style) | VERIFIED | indirect-injection.test.ts (10): «вывод = данные, не инструкции» для web_fetch/read_file/web_search/MCP, SSRF-блок, protected files, гейты опасных команд, observation-канал tool-loop | tests/safety/indirect-injection.test.ts | Phase 1 / P1-2 | санитайзера нет осознанно (DEC-008); E2E на живой модели — отдельный трек |
 
 ## Инструменты
 
@@ -89,7 +89,7 @@
 ### Известные системные пробелы (сводка)
 
 1. ~~Миграционные тесты M6 (старая БД → апгрейд, повторный старт, FTS) — Pass 1.~~ → **решено (P1-1):** `tests/memory/migration.test.ts` (6 тестов: fresh, legacy-апгрейд с сохранением фактов, v30-регрессия delete, 2× restart, триггеры insert/update/delete).
-2. Injection-фикстуры для web/file/MCP — Pass 1.
+2. ~~Injection-фикстуры для web/file/MCP — Pass 1.~~ → **решено (P1-2):** `tests/safety/indirect-injection.test.ts` (10 тестов: контракт «вывод = данные» для web_fetch/read_file/web_search/MCP, SSRF-блок, защищённые файлы, гейты опасных команд, observation-канал tool-loop).
 3. Graphiti end-to-end recall — после Pass 1.
 4. Мёртвый узел agents/autonomous-loop/skills — решение о маршрутизации (DEC-008 блокирует до Pass 2).
 5. Подсистемы без собственных тестов: compression, resource-manager, фоновые (life-loop/proactive/monitor/attention/world/meta/identity) — приёмочные тесты по мере касания.

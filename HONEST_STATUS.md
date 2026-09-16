@@ -1,6 +1,6 @@
 # U.N.A. Desktop — Честный статус (HONEST STATUS)
 
-> **Дата проверки:** 15 сентября 2026 (M6 «Память + подтверждения») — обновление аудита M4
+> **Дата проверки:** 16 сентября 2026 (M6 «Память + подтверждения»; Phase 1 / Pass 1 remainder — P1-1, P1-2) — обновление аудита M4
 > **Версия проекта:** v40 (рабочее дерево)
 > **Цель:** Честно документировать что РЕАЛЬНО работает, что частично, что не работает.
 >
@@ -26,10 +26,10 @@
 |----------|---------|-----------|
 | TypeScript (electron) | `tsc -p electron/tsconfig.json --noEmit` | ✅ 0 ошибок |
 | TypeScript (renderer) | `tsc -p tsconfig.json --noEmit` | ✅ 0 ошибок |
-| Тесты | `vitest run` | ✅ 240 / 240 pass |
+| Тесты | `vitest run` | ✅ 250 / 250 pass (13 файлов) |
 | Сборка рендерера | `vite build` | ✅ собирается (1.45 MB JS, warning про размер чанка) |
 | Инструменты | `ls electron/tools/definitions` | 25 инструментов |
-| Манифест файлов | `node scripts/verify-manifest.js` | ✅ 267/267 на месте, 0 пропущено, 0 лишних |
+| Манифест файлов | `node scripts/verify-manifest.js` | ✅ 273/273 на месте, 0 пропущено, 0 лишних |
 | MCP (graphiti) | `node scripts/m3-smoke-mcp.mjs` | ✅ initialize + tools/list, 3 tools |
 | Pre-build check | `node scripts/pre-build-check.js` | ✅ 0 ошибок, 2 warning (robotjs optional) |
 | Интеграции | `grep` по импортам `main.ts` | см. ниже |
@@ -43,7 +43,7 @@
 |-----------|--------|---------|
 | TypeScript компиляция | ✅ 0 errors | electron + renderer |
 | Vite build | ✅ | 1.28 MB JS (с syntax highlighter + Rive) |
-| 240 тестов | ✅ все pass | tools, safety, memory-manager, router, confirmation, migration |
+| 250 тестов | ✅ все pass | tools, safety, memory-manager, router, confirmation, migration, indirect-injection |
 | Electron entry point | ✅ | `dist-electron/electron/main.js` |
 | npm install | ✅ | с `--legacy-peer-deps` |
 | Pre-build validation | ✅ | `scripts/pre-build-check.js` |
@@ -193,7 +193,7 @@
 
 ### Честная оценка зрелости: 8/10
 Ядро (чат + tools + streaming + память фактов + безопасность + голос-fallback) работает
-и протестировано (234/234). M1: local-first по умолчанию (Ollama qwen3:1.7b, think off),
+и протестировано (250/250). M1: local-first по умолчанию (Ollama qwen3:1.7b, think off),
 L0 pre-router (gui/system — < 50 мс, ноль GPU), MCP handshake починен.
 M2: ollama keep_alive 5m = VRAM-gate на простой (модель сама выгружается, пока играешь/работаешь),
 пример MCP-сервера обновлён на реальный graphiti-una stdio-сервер.
@@ -206,7 +206,10 @@ M6: Memory Manager — скоринг-гейт, L1-стор, L2-Graphiti рет�
 отклонённых кандидатов; подтверждения опасных действий — pending-action records (digest действия,
 TTL 10 минут, origin, одноразовое погашение после исполнения).
 Phase 0 закрыт и верифицирован (`6ff77d4`): архитектурная память оформлена (decision-log DEC-001…010,
-implementation-map по Evidence), Deep Research v4.1 сохранён в `docs/research/`. Следующая фаза — Phase 1.
+implementation-map по Evidence), Deep Research v4.1 сохранён в `docs/research/`.
+Phase 1 / Pass 1 remainder закрыт: миграционные тесты M6 (P1-1, `tests/memory/migration.test.ts`) и
+injection-фикстуры web/file/search/MCP (P1-2, `tests/safety/indirect-injection.test.ts`); контракт
+«вывод инструмента = данные, не инструкции» зафиксирован тестами (санитайзера нет осознанно — DEC-008).
 Не интегрированы: multi-agent, autonomous loop, skills.
 
 ---
@@ -227,7 +230,7 @@ implementation-map по Evidence), Deep Research v4.1 сохранён в `docs/
 1. ~~**Починить embeddings**~~ — ✅ решено через Ollama `/api/embed` + FTS5 fix (v30).
 2. ~~**MCP Adapter**~~ — ✅ подключён в main.ts (v30); end-to-end с Graphiti см. docs/GRAPHITI_MEMORY.md.
 3. ~~**Аудит жизненного цикла подтверждений**~~ — ✅ решено в M6 (research-backlog Pass 1): детерминированные токены + pending-action records (TTL 10 мин, origin, одноразовое погашение); тесты `tests/tools/confirmation.test.ts`.
-4. **Миграционные тесты M6** (старая БД → апгрейд, повторный старт, FTS) и **injection-фикстуры** (web/MCP) — по research-backlog Pass 1.
+4. ~~**Миграционные тесты M6**~~ и ~~**injection-фикстуры** (web/MCP)~~ — ✅ решены в Phase 1 / Pass 1 remainder: `tests/memory/migration.test.ts` (P1-1, 6 тестов) и `tests/safety/indirect-injection.test.ts` (P1-2, 10 тестов).
 5. **Интегрировать multi-agent в `main.ts`** — код есть, но не используется.
 6. **GUI-automation end-to-end** — зависимость установлена, проверить на реальном столе (контракт подтверждений больше не блокер).
 7. **Avatar redesign** — `UnaAvatar` по оценке пользователя сделан плохо.

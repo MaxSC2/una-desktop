@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-15T19:23:39.727Z",
+  "generatedAt": "2026-09-16T15:33:54.078Z",
   "note": "Автогенерируется scripts/sync-manifest.js. Единый источник правды для verify-manifest.js.",
   "excludeDirs": [
     "node_modules/",
@@ -38,7 +38,7 @@
     "desktop.ini",
     "scripts/manifest-files.json"
   ],
-  "total": 267,
+  "total": 273,
   "files": [
     ".cursorrules",
     ".env.example",
@@ -102,11 +102,16 @@
     "docs/design/GRAMMAR_INTERACTION_v0.1.md",
     "docs/design/GRAMMAR_MOTION_v0.1.md",
     "docs/design/GRAMMAR_VISUAL_v0.1.md",
+    "docs/design/SCENE_COMPOSITION_v0.2.md",
     "docs/design/UNA_PRESENCE_DESIGN_v0.1.md",
     "docs/design/prototype-a1-a3/README.md",
     "docs/design/prototype-a1-a3/index.html",
     "docs/design/prototype-a1-a3/prototype.css",
     "docs/design/prototype-a1-a3/prototype.js",
+    "docs/design/prototype-scene-v0.2/README.md",
+    "docs/design/prototype-scene-v0.2/index.html",
+    "docs/design/prototype-scene-v0.2/scene.css",
+    "docs/design/prototype-scene-v0.2/scene.js",
     "docs/design/wireframes/01-idle.md",
     "docs/design/wireframes/02-speaking.md",
     "docs/design/wireframes/03-working.md",
@@ -303,6 +308,7 @@
     "tests/memory/rlm.test.ts",
     "tests/memory/store.test.ts",
     "tests/safety/classifier.test.ts",
+    "tests/safety/indirect-injection.test.ts",
     "tests/tools/confirmation.test.ts",
     "tsconfig.json",
     "vite.config.ts",
