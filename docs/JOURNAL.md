@@ -102,6 +102,10 @@
 
 **Дальше:** Phase 2 — синхронизировать скоуп с GPT: research-backlog Pass 2 (memory-projects comparison) vs Pass 3 browser/GUI track vs lifecycle «Phase 2 — Memory & Continuity».
 
+**Решение DEC-012** (закрывает открытый вопрос №2 из ревью `3206003`): один коммит = одна задача;
+файлы дизайнера (`docs/design/**`) — только отдельными дизайн-коммитами, никогда не подхватывать
+автоматически (проверка `git status --short` перед индексацией). Записано в `decision-log.md`.
+
 **Проверки:** tsc electron 0 · tsc renderer 0 · vitest 240/240 (12 файлов) · `npm run build` ✓ (0 errors, 2 warning — старые, robotjs optional)
 
 **Коммит:** `test(memory): P1-1 миграционные тесты M6 — старая БД, рестарт, FTS`
