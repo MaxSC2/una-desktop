@@ -16,6 +16,14 @@
 
 Кандидаты: Hermes, opencode-memory, Magic Context, Letta, Mem0, Graphiti, AIRI Alaya.
 
+**Статус 2026-09-16: Step 1 (lightweight) выполнен** — docs/research/phase-2-memory-research.md:
+4 design questions (SURFACE gate, token budget, forget/retention, context composer) исследованы
+по первоисточникам (Letta MemFS/Dreaming, Mem0 add/search/operations, Graphiti search recipes,
+LangMem hot-path/background, Anthropic/OpenAI prompt caching) + фактический код U.N.A.
+(6 contradictions C1–C6, 6 открытых вопросов). Graphiti E2E перепроверен живым прогоном —
+FAILED (structured output qwen3:1.7b; Kuzu deprecated). Полное сравнение по 5 строкам таблицы
+ниже (WRITE/DREAM/SURFACE/Context/Forget для каждого кандидата) — следующий шаг или Phase 3.
+
 | Вопрос | Что искать | Артефакт |
 |---|---|---|
 | WRITE | scoring, dedupe, provenance, user review | таблица write policies |

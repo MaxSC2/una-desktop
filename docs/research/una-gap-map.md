@@ -38,7 +38,7 @@
 | Тесты vitest | 250/250 (13 файлов) | прогон 2026-09-16: router 6 · tool-loop 2 · code-tools 7+19 · web-tools 43+13 · store 27 · rlm 4 · manager 13 · migration 6 · classifier 88 · confirmation 12 · injection 10 |
 | Манифест | 273/273 (0 missing) | `verify-manifest.js`, 2026-09-16; «+1 лишний» = untracked `docs/design/prototype-scene-vNext/` (работа дизайнера, DEC-012) |
 | Мёртвый узел | agents/autonomous-loop/skills — по-прежнему NOT WIRED (единственная ссылка на autonomous-loop — `scripts/apply-m4-briefing.mjs`; runtime-импортов нет) | импорт-граф, 2026-09-16 |
-| Graphiti | протокол VERIFIED (m3-smoke: initialize + 3 tools); E2E recall не подтверждён — остаётся открытым гэпом №3 | код + smoke-скрипт |
+| Graphiti | протокол VERIFIED (m3-smoke: initialize + 3 tools); E2E recall не подтверждён — остаётся открытым гэпом №3. **Update 2026-09-16: реальный E2E-прогон через mcp-adapter: memory_add падает (ExtractedEdges validation, structured output qwen3:1.7b); Kuzu-бэкенд deprecated — upstream не поддерживается (миграция на FalkorDB/Neo4j). См. phase-2-memory-research.md §5** | код + smoke-скрипт + E2E-лог C:\TEMP\e2e-run.log |
 
 ## Пробел → рекомендуемый research-проход
 
