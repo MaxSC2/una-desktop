@@ -24,6 +24,14 @@ LangMem hot-path/background, Anthropic/OpenAI prompt caching) + фактичес
 FAILED (structured output qwen3:1.7b; Kuzu deprecated). Полное сравнение по 5 строкам таблицы
 ниже (WRITE/DREAM/SURFACE/Context/Forget для каждого кандидата) — следующий шаг или Phase 3.
 
+**Статус 2026-09-17: Phase 2 Step 1.5 закрыт** (`c677eb6`, routing reconciliation audit + Graphiti
+spike: границы A/A′/B/B′/C разведены, см. implementation-map пробел №3). **Step 2 (cognitive
+routing) proposal готов** — `docs/research/phase-2-step-2-cognitive-routing-proposal.md` (§1–20:
+маршрутизация L0–L4, Action-словарь, capability-контракт, единый token budget, Provider Router,
+Graphiti boundary, DEC-014…DEC-020 DRAFT; baseline n=56: LLM-free 35.7%). DEC не утверждены —
+реализация (M-a…M-h, §17) заблокирована до утверждения; ограничение «Decision слой не запускать
+до DEC» (ниже) сохраняется.
+
 | Вопрос | Что искать | Артефакт |
 |---|---|---|
 | WRITE | scoring, dedupe, provenance, user review | таблица write policies |
