@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="ru">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>U.N.A. — Conversation Field v0.3</title><link rel="stylesheet" href="scene.css"></head>
+<body data-state="idle" data-zone="center">
+<div class="room" aria-hidden="true"><div class="room-light room-light-a"></div><div class="room-light room-light-b"></div><div class="room-horizon"></div><div class="room-floor"></div><div class="room-vignette"></div></div>
+<div class="app">
+<header class="header"><span class="brand">U.N.A.</span><time id="clock">14:42</time></header>
+<main class="stage">
+<section class="presence-wrap" aria-label="Присутствие Юны">
+<div class="presence" id="presence"><div class="presence-aura"></div><div class="avatar-shell"><div class="avatar-core" aria-hidden="true"></div><div class="voice-ring" id="voiceRing" hidden><i></i><i></i><i></i></div></div></div>
+<p class="presence-line" id="presenceLine">Я рядом. Чем займёмся?</p>
+</section>
+<section class="conversation" id="conversation" aria-label="Разговор"><div class="conversation-rail" aria-hidden="true"></div><div class="conversation-list" id="conversationList"></div></section>
+<aside class="task-pocket" id="taskPocket" hidden aria-label="Текущая задача">
+<div class="task-title"><span>Чистка /tmp</span><span id="taskStep">1/4</span></div><div class="task-progress"><span id="taskProgress"></span></div><ol id="taskSteps"></ol>
+<div class="task-actions"><button id="taskLog" type="button">лог</button><button id="taskStop" type="button">остановить</button></div><pre id="taskLogText" hidden></pre>
+</aside>
+</main>
+<footer class="dock">
+<nav class="tabs" aria-label="Разделы"><button class="tab active" type="button">Chat</button><button class="tab" type="button">Tasks</button><button class="tab" type="button">Memory</button><button class="tab" type="button">System</button></nav>
+<form class="composer" id="composer"><span class="composer-mark" aria-hidden="true"></span><input id="input" autocomplete="off" placeholder="Написать Юне…" aria-label="Написать Юне"><button id="stop" class="control stop" type="button" hidden aria-label="Остановить">■</button><button id="mic" class="control" type="button" aria-label="Голосовой ввод">◌</button><button class="control send" type="submit" aria-label="Отправить">↑</button></form>
+</footer></div><script src="scene.js"></script>
+</body></html>
