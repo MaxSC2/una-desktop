@@ -10,6 +10,29 @@
 
 ---
 
+## 2026-09-17
+
+**Архитектура Phase 2 — раскидка раздумий lead'а (роль контекст-архивариуса, DEC-013):**
+- `docs/Phase2/UNA_Phase2_Step2_Cognitive_Routing_Adaptation.md` — адаптация Step 2 по коду: лестница L0–L2 уже в `router.ts`, реальный пробел — capability-слой
+- `docs/Phase2/UNA_Phase2_Step1.5_Routing_Reconciliation_Brief.md` — обязательный Step 1.5: карта механизмов, canonical authority = `router.ts`, Intent ≠ Capability ≠ Action ≠ Tool, baseline-методика; находка: `filterToolsByIntent` — мёртвый код
+- `docs/research/system-one-decision-models.md` — Jev/System-One как промежуточный примитив; DecisionProvider как optional capability, не зависимость
+- `docs/research/task-context-isolation.md` — изолированные TaskContext'ы (GLOBAL/TASK/EPHEMERAL), обмен Structured Findings; изоляция ≠ идентичность
+- `docs/research/architecture-synthesis-cognitive-runtime.md` — синтез 18 идей brainstorm'а (exists/rename/new/merge/research-only); находка: `executive.ts` vs `goal-tracker.ts` — два менеджера целей (в scope Step 1.5); Memory Scopes = формализация подов
+- `docs/research/needle-action-model.md` — Needle 3 как флагман-кандидат Pass 6 (Apache-2.0, ladder 2–20, grammar-constraints, retrieval, confidence ≠ разрешение); Needle Lab: 20L, RU-first, корпус A–H
+- `docs/research/decision-log.md` — DEC-013 (роли: lead + исследователь + кодер + архивариус; конвейер утверждений); `research-backlog.md` — Pass 5 (Task Isolation), Pass 6 (+Needle)
+
+**Скилл project-worklog:** `practice-log-mandatory` удалён, создан адаптивный `project-worklog`; legacy `PRACTICE_LOG.md` (OneDrive) удалён — журнал ведётся здесь.
+
+**Проверки:** tsc electron 0 · tsc renderer 0 · vitest 250/250 (13 файлов)
+
+**Коммитов нет** (только документы; коммит — за lead'ом/кодером).
+
+**Дальше:** Step 1.5 аудит по брифу → обновление Step 2 proposal → DEC; Needle Lab (Решение №1).
+
+**Needle-экосистема (вечер, архивариус):** `docs/research/needle-action-model.md` — §12: Mini-UNA как лаборатория (факты сверены с живым репо MaxSC2/Mini-UNA: NeedleServer + needle3.cact + arm64, 28 tools, SafetyPolicy ALLOW/CONFIRM/BLOCK); разделение на 4 корзины (Needle из коробки / наш scope / Needle не решает / U.N.A. Core); граница — Needle только внутри отрезка utterance→Action; методология — мерить «чистый Needle» и «Needle+deterministic» отдельно.
+
+---
+
 ## 2026-09-16
 
 **Phase 1 / Pass 1 remainder — P1-2 (injection-фикстуры, корпус + контрактные тесты):**

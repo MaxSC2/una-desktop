@@ -69,6 +69,48 @@ POC разрешён только для Playwright; Stagehand сравнива�
 существующими reminders/life-loop. Для ПК-помощника на одной машине первым сравнением должен быть
 минимальный встроенный queue, а не отдельный server stack.
 
+Концепт-основа для сравнения: `docs/research/task-context-isolation.md` —
+изолированные TaskContext'ы (GLOBAL/TASK/EPHEMERAL), состояния задач, scheduler,
+обмен через Structured Findings. Требование к кандидатам Pass 5: runtime обязан
+поддерживать изоляцию состояния задачи без требования параллельного inference
+(параллелизм — возможность исполнения, не архитектурное условие).
+
+## Pass 6 — System-One / Decision models
+
+**Ветка:** архитектурный capability U.N.A., не конкретный сервис. Исследование:
+`docs/research/system-one-decision-models.md`.
+
+Кандидаты: TypeSafe Jev (closed, hosted API), OpenJev, jevlike, jev-ultrafast
+(browser-use), EVIE (Tencent), локальный маленький classifier.
+
+**Флагман-кандидат класса: Needle 3 (Cactus Compute).** Open-source (Apache-2.0),
+8–29 МБ, ladder 2–20 слоёв (база 16L `needle3.safetensors`, полный 20L
+`needle3_enterprise.safetensors`), локальный CPU-runtime (вкл. Windows win_amd64),
+grammar-constrained structured calls, tool retrieval (top-5), confidence-сигнал с
+эскалацией, extraction-режим, LoRA + экспорт `.cact`. Исследование:
+`docs/research/needle-action-model.md`.
+
+Гипотеза: между семантическим слоем (embeddings-классификация, уже есть в
+`semantic-router.ts`) и генеративным reasoning есть класс **дешёвых
+probabilistic decision-моделей**: состояние + типизированные вопросы →
+`choice` / `score` / boolean с вероятностями (не текст). Целевые применения:
+routing (intent/capability/target), attention-фильтр событий, urgency/risk,
+requires_llm-гейт, verification.
+
+Проверять contracts, а не vendor-числа:
+
+```text
+state → typed questions → {choice | score | boolean} + confidence
+```
+
+Правила: Jev закрыт (hosted API) — рассматривать только как интерфейс; открытые
+реализации (OpenJev, jevlike, jev-ultrafast, EVIE) — кандидаты для локального
+DecisionProvider; confidence калибруется на собственных данных; низкая уверенность →
+clarification или сильная модель; provider заменяем, fallback — в LLM. Decision
+слой не конкурирует с semantic-router (`semantic-router.ts` — упрощённый частный
+случай того же класса задач). Не запускать до завершения Step 1.5 (routing
+reconciliation) и соответствующего DEC.
+
 ## Definition of done для записи каталога
 
 Запись становится `ASSESSED`, когда у неё есть: конкретный UNA gap, upstream URL + tag, license,
