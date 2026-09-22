@@ -72,7 +72,7 @@ tests/      Unit и integration tests.
 > Источник правды: `scripts/manifest-files.json`. Обновление: `node scripts/sync-manifest.js`.
 > Не редактировать вручную — блок перезаписывается.
 
-> **Всего файлов:** 329 · **Сгенерировано:** 2026-09-22
+> **Всего файлов:** 291 · **Сгенерировано:** 2026-09-22
 
 ```
 ## .github (3)
@@ -143,7 +143,7 @@ tests/      Unit и integration tests.
   assets/sprites/una_32.png
   assets/sprites/una_33.png
 
-## docs (96)
+## docs (57)
   docs/ARCHITECTURE.md
   docs/BACKGROUND.md
   docs/CODE.md
@@ -173,45 +173,6 @@ tests/      Unit и integration tests.
   docs/design/prototype-scene-v0.2/index.html
   docs/design/prototype-scene-v0.2/scene.css
   docs/design/prototype-scene-v0.2/scene.js
-  docs/design/prototype-scene-vNext/.review-profile/Code Cache/js/index
-  docs/design/prototype-scene-vNext/.review-profile/Code Cache/js/index-dir/the-real-index
-  docs/design/prototype-scene-vNext/.review-profile/Code Cache/wasm/index
-  docs/design/prototype-scene-vNext/.review-profile/Code Cache/wasm/index-dir/the-real-index
-  docs/design/prototype-scene-vNext/.review-profile/Local State
-  docs/design/prototype-scene-vNext/.review-profile/Local Storage/leveldb/CURRENT
-  docs/design/prototype-scene-vNext/.review-profile/Local Storage/leveldb/LOCK
-  docs/design/prototype-scene-vNext/.review-profile/Local Storage/leveldb/LOG
-  docs/design/prototype-scene-vNext/.review-profile/Local Storage/leveldb/LOG.old
-  docs/design/prototype-scene-vNext/.review-profile/Local Storage/leveldb/MANIFEST-000001
-  docs/design/prototype-scene-vNext/.review-profile/Network/Network Persistent State
-  docs/design/prototype-scene-vNext/.review-profile/Network/NetworkDataMigrated
-  docs/design/prototype-scene-vNext/.review-profile/Network/Trust Tokens
-  docs/design/prototype-scene-vNext/.review-profile/Network/Trust Tokens-journal
-  docs/design/prototype-scene-vNext/.review-profile/Preferences
-  docs/design/prototype-scene-vNext/.review-profile/Session Storage/CURRENT
-  docs/design/prototype-scene-vNext/.review-profile/Session Storage/LOCK
-  docs/design/prototype-scene-vNext/.review-profile/Session Storage/LOG
-  docs/design/prototype-scene-vNext/.review-profile/Session Storage/LOG.old
-  docs/design/prototype-scene-vNext/.review-profile/Session Storage/MANIFEST-000001
-  docs/design/prototype-scene-vNext/.review-profile/Shared Dictionary/cache/index
-  docs/design/prototype-scene-vNext/.review-profile/Shared Dictionary/cache/index-dir/the-real-index
-  docs/design/prototype-scene-vNext/.review-profile/Shared Dictionary/db
-  docs/design/prototype-scene-vNext/.review-profile/Shared Dictionary/db-journal
-  docs/design/prototype-scene-vNext/README.md
-  docs/design/prototype-scene-vNext/index.html
-  docs/design/prototype-scene-vNext/prototype.css
-  docs/design/prototype-scene-vNext/prototype.js
-  docs/design/prototype-scene-vNext/review.cjs
-  docs/design/prototype-scene-vNext/review/control-a1.png
-  docs/design/prototype-scene-vNext/review/control-a3.png
-  docs/design/prototype-scene-vNext/review/control-v02-conversation.png
-  docs/design/prototype-scene-vNext/review/control-v02.png
-  docs/design/prototype-scene-vNext/review/next-current.png
-  docs/design/prototype-scene-vNext/review/next-right.png
-  docs/design/prototype-scene-vNext/review/next-stopped.png
-  docs/design/prototype-scene-vNext/review/next-streaming.png
-  docs/design/prototype-scene-vNext/review/next-working.png
-  docs/design/prototype-scene-vNext/review/result.json
   docs/design/wireframes/01-idle.md
   docs/design/wireframes/02-speaking.md
   docs/design/wireframes/03-working.md
@@ -407,9 +368,10 @@ tests/      Unit и integration tests.
   src/main.tsx
   src/styles/index.css
 
-## tests (13)
+## tests (14)
   tests/ai/code-tools-integration.test.ts
   tests/ai/code-tools.test.ts
+  tests/ai/compression.test.ts
   tests/ai/router.test.ts
   tests/ai/tool-loop.test.ts
   tests/ai/web-tools-integration.test.ts
