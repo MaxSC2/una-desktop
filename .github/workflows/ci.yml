@@ -20,8 +20,12 @@ jobs:
           node-version: 20
           cache: npm
 
+      # --ignore-scripts: postinstall runs `electron-builder install-app-deps` ->
+      # source build of better-sqlite3 via node-gyp, which fails on windows-latest
+      # (image ships VS 18, node-gyp 9.x cannot detect it). No CI job executes
+      # native modules or the electron binary, so lifecycle scripts are skipped.
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --ignore-scripts
 
       - name: Run lint
         run: npm run check
@@ -39,8 +43,10 @@ jobs:
           node-version: 20
           cache: npm
 
+      # See lint job: lifecycle scripts skipped (native better-sqlite3 build
+      # is not needed for type checking and breaks on the current runner image).
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --ignore-scripts
 
       - name: Type check electron
         run: npx tsc -p electron/tsconfig.json
@@ -62,8 +68,10 @@ jobs:
           node-version: 20
           cache: npm
 
+      # See lint job: lifecycle scripts skipped (native better-sqlite3 build
+      # is not needed for vite/tsc build and breaks on the current runner image).
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --ignore-scripts
 
       - name: Build
         run: npm run build

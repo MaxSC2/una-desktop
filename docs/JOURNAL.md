@@ -21,11 +21,18 @@
 
 **Волна архивариуса 2026-09-17/18 ушла в git:** коммит `c186f0b` (DEC-013, Pass 5/6, Phase2 Step1.5/2 briefs, Needle, DR v4.2) — отложенный «коммит за кодером» выполнен в рамках выданной автономии.
 
-**Проверки:** verify-manifest 328/328 (0 пропущено, 0 лишних); tsc/vitest не гонялись — docs-only.
+**Подготовка первой задачи K3 (DEC-021, директивы lead'а):**
+- ветка `k3/task-001-compression-tests` (push в origin) + worktree `../UNA-k3-workzone`; `.env` отсутствует по построению (не в git, локально не существует)
+- `docs/tasks/k3/TASK-001-compression-tests.md` — спецификация: приёмочные тесты на `electron/ai/compression.ts` (implementation-map пробел №5); продакшн-код не менять, расхождения → отчёт (контракт P1-2)
+- `implementation-map.md` — пробел №5 аннотирован (TASK-001 назначена), добавлен пробел №6: `.review-profile/` в манифесте → pending-задача (lead), не начата
+- окружение K3: node_modules зеркалирован с основного дерева robocopy (npm install в worktree давал битую распаковку optional-deps — npm bug #4828: rolldown/electron/undici-types); провалидировано: vitest 250/250 ✓, tsc electron 0 ✓
+- статус: READY; блокер запуска — ruleset на `main` (lead, GitHub UI)
 
-**Коммиты:** `c186f0b` (архивариус 09-17/18) + этот коммит (DEC-021 + CODEOWNERS + контракт отчётов).
+**Проверки:** verify-manifest 329/329 (0 пропущено, 0 лишних); tsc/vitest не гонялись — docs-only.
 
-**Дальше:** lead — branch protection на `main` в GitHub UI (gh CLI на машине нет); первая ветка `k3/<task>` при постановке первой задачи K3; `.review-profile/` в EXCLUDE — отдельной задачей.
+**Коммиты:** `c186f0b` (архивариус 09-17/18), `21a3214` (DEC-021 + CODEOWNERS + контракт отчётов) + этот коммит (TASK-001 + pending-задача).
+
+**Дальше:** lead — ruleset на `main` в GitHub UI → старт K3 по TASK-001.
 
 ---
 
@@ -49,6 +56,12 @@
 **Дальше:** Step 1.5 аудит по брифу → обновление Step 2 proposal → DEC; Needle Lab (Решение №1).
 
 **Needle-экосистема (вечер, архивариус):** `docs/research/needle-action-model.md` — §12: Mini-UNA как лаборатория (факты сверены с живым репо MaxSC2/Mini-UNA: NeedleServer + needle3.cact + arm64, 28 tools, SafetyPolicy ALLOW/CONFIRM/BLOCK); разделение на 4 корзины (Needle из коробки / наш scope / Needle не решает / U.N.A. Core); граница — Needle только внутри отрезка utterance→Action; методология — мерить «чистый Needle» и «Needle+deterministic» отдельно.
+
+**Решение DEC-014 (2026-09-22):** Needle — единственное активное micro-model направление (не зоопарк); Jev/Laya/Kev/decider → резерв backlog'а; поправка Laya-multilingual зафиксирована; скоуп GLM/Kimi — только абстракции (Action/Capability/CognitionProvider contract/abstain/confidence/escalation), без CognitiveRouter и multi-ProviderRouter; remote proposal `c436a49` сверен (698 строк, [V]/[I], корпус n=56, baseline 35.7%) — локальные v40-доки его предшественники.
+
+**Аудит ревью (9 пунктов, сверено по коду, без изменений):** `docs/research/code-audit-2026-09-22.md` — 7×CONFIRMED + 1 residual + 1 MIXED. Главное: дубль user message РЕАЛЕН в обоих хендлерах (фикса `slice(0,-1)` из AGENTS.md нет в дереве); `open_app` — инъекция в `cmd.exe` (security, первым в очередь); IPC-гонка — остаточная (теряется stream-end); `tool_choice` ЕСТЬ, но в cloud-путях, а не в Ollama (доки — наоборот); AGENTS.md/HONEST_STATUS по трём фиксам описывают чужое дерево — статусы STALE до сверки с git-историей.
+
+**Аудит, партия 2 (6 пунктов, сверено):** 5×CONFIRMED + 1 MIXED. Telegram — перехват `chatId` любым + нет персистентности (security); бэкап — валидатор режет `self_review` (реально пишется из `monologue.ts:80`, `self-review.ts:56`), `pod_id` и 4 таблицы вне дампа; напоминания — календарной даты в промпте нет (только поэтическое timeOfDay), галлюцинации срабатывают мгновенно; SSRF — `redirect:follow` + проверка ПОСЛЕ (оба инструмента, TOCTOU); `run_code` — хостовые интринсики в `vm` (`Buffer` в т.ч.); MCP — `disconnectAll()` СУЩЕСТВУЕТ, но не вызывается нигде → зомби реальны. Обновлённый приоритет: security-кластер (#3,#10,#13,#14) первым пакетом.
 
 ---
 

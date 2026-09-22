@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-22T16:54:29.951Z",
+  "generatedAt": "2026-09-22T17:19:08.095Z",
   "note": "Автогенерируется scripts/sync-manifest.js. Единый источник правды для verify-manifest.js.",
   "excludeDirs": [
     "node_modules/",
@@ -38,7 +38,7 @@
     "desktop.ini",
     "scripts/manifest-files.json"
   ],
-  "total": 328,
+  "total": 329,
   "files": [
     ".cursorrules",
     ".env.example",
@@ -184,6 +184,7 @@
     "docs/research/task-context-isolation.md",
     "docs/research/una-gap-map.md",
     "docs/research/verification-log.md",
+    "docs/tasks/k3/TASK-001-compression-tests.md",
     "electron-builder.yml",
     "electron/agents/index.ts",
     "electron/agents/rlm-extensions.ts",
