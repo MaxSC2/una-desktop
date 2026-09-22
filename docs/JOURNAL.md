@@ -10,6 +10,25 @@
 
 ---
 
+## 2026-09-22
+
+**DEC-021 — автономная рабочая зона K3 (lead утвердил; оформил архитектурный совет):**
+- `docs/research/k3-autonomous-workzone-proposal.md` — спецификация: модель контура, матрица разрешений (+дополнения совета: `electron/safety/**`, workflows, `package*.json`, `AGENTS.md`), DEC-граница, enforcement, контракт отчёта, стоп-условия
+- `docs/research/decision-log.md` — DEC-021 (Accepted): K3 в ветке `k3/*`, цикл анализ→код→тесты→commit→отчёт; enforcement гейтами, не инструкциями
+- `.github/CODEOWNERS` — критичные пути под review lead (@MaxSC2)
+- `docs/reports/k3/README.md` — контракт отчёта K3
+- находка: `sync-manifest` подхватил `.review-profile/` (кэш-профиль дизайнера) в манифест — кандидат на EXCLUDE (PROPOSED, не исправлено — вне scope задачи)
+
+**Волна архивариуса 2026-09-17/18 ушла в git:** коммит `c186f0b` (DEC-013, Pass 5/6, Phase2 Step1.5/2 briefs, Needle, DR v4.2) — отложенный «коммит за кодером» выполнен в рамках выданной автономии.
+
+**Проверки:** verify-manifest 328/328 (0 пропущено, 0 лишних); tsc/vitest не гонялись — docs-only.
+
+**Коммиты:** `c186f0b` (архивариус 09-17/18) + этот коммит (DEC-021 + CODEOWNERS + контракт отчётов).
+
+**Дальше:** lead — branch protection на `main` в GitHub UI (gh CLI на машине нет); первая ветка `k3/<task>` при постановке первой задачи K3; `.review-profile/` в EXCLUDE — отдельной задачей.
+
+---
+
 ## 2026-09-17
 
 **Архитектура Phase 2 — раскидка раздумий lead'а (роль контекст-архивариуса, DEC-013):**

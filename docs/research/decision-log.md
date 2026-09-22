@@ -171,4 +171,29 @@
 - **Status:** Accepted.
 - **Superseded by:** —.
 
+## DEC-021 — Автономная рабочая зона K3 (AI-кодер)
+
+- **Decision:** автономный AI-кодер (K3) работает в изолированной ветке `k3/*` с полным
+  циклом «анализ → код → тесты → фикс → commit → отчёт». Зона разрешений, стоп-условия,
+  контракт отчёта и enforcement — `docs/research/k3-autonomous-workzone-proposal.md`.
+  K3 не утверждает DEC: новые идеи — proposal со статусом DRAFT / PENDING APPROVAL;
+  реализация — только Accepted DEC и утверждённые задачи.
+- **Date:** 2026-09-22 (утверждено lead'ом).
+- **Problem:** дать K3 самостоятельность без «полного root-доступа»; документированные
+  запреты без технических гейтов не работают в Never Ask-режиме агента.
+- **Options:** (a) полный `/auto` на всю машину; (b) ручной режим с подтверждением каждого
+  шага; (c) изолированная ветка + автоматизация внутри зоны + технические гейты.
+- **Chosen:** (c): branch protection на `main`, CODEOWNERS на критичные пути
+  (`decision-log.md`, `implementation-map.md`, `electron/safety/**`, `.github/workflows/**`,
+  `AGENTS.md`, `package*.json`), физическое отсутствие секретов в окружении агента,
+  монотематические коммиты (DEC-012), отчёт по контракту после каждого захода.
+- **Why:** совместимо с DEC-011 (GitHub как оперативная память: отчёты/коммиты сверяемы),
+  DEC-012, DEC-013 (K3 = роль AI-кодера); enforcement механизмами, а не инструкциями.
+- **Evidence:** `docs/research/k3-autonomous-workzone-proposal.md`, `.github/CODEOWNERS`,
+  `docs/reports/k3/README.md`.
+- **Affected modules:** процесс разработки; `.github/CODEOWNERS` (новый),
+  `docs/reports/k3/` (новый).
+- **Status:** Accepted.
+- **Superseded by:** —.
+
 

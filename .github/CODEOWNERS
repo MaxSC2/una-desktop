@@ -1,0 +1,23 @@
+# CODEOWNERS — UNA-Desktop
+# DEC-021: изменения критичных путей требуют review lead'а.
+# Автономные агенты (K3) работают в ветках k3/* и не мерджат сюда без PR + review.
+
+# Владелец по умолчанию
+* @MaxSC2
+
+# Архитектурная память (иерархия истины, DEC-010/013)
+docs/research/decision-log.md @MaxSC2
+docs/research/implementation-map.md @MaxSC2
+
+# Policy-слой безопасности (DEC-002) — агент не правит защиту, которая его ограничивает
+electron/safety/ @MaxSC2
+
+# CI/release — supply-chain: агент не меняет то, что его проверяет
+.github/workflows/ @MaxSC2
+
+# Инструкции для агентов — правятся не агентами, а через proposal
+AGENTS.md @MaxSC2
+
+# Зависимости — новая зависимость = архитектурное решение
+package.json @MaxSC2
+package-lock.json @MaxSC2

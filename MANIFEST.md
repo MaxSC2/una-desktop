@@ -72,16 +72,18 @@ tests/      Unit и integration tests.
 > Источник правды: `scripts/manifest-files.json`. Обновление: `node scripts/sync-manifest.js`.
 > Не редактировать вручную — блок перезаписывается.
 
-> **Всего файлов:** 273 · **Сгенерировано:** 2026-09-16
+> **Всего файлов:** 328 · **Сгенерировано:** 2026-09-22
 
 ```
-## .github (2)
+## .github (3)
+  .github/CODEOWNERS
   .github/workflows/ci.yml
   .github/workflows/release.yml
 
-## (root) (23)
+## (root) (24)
   .cursorrules
   .env.example
+  .gitattributes
   .gitignore
   AGENTS.md
   CHANGELOG.md
@@ -141,7 +143,7 @@ tests/      Unit и integration tests.
   assets/sprites/una_32.png
   assets/sprites/una_33.png
 
-## docs (42)
+## docs (95)
   docs/ARCHITECTURE.md
   docs/BACKGROUND.md
   docs/CODE.md
@@ -152,6 +154,10 @@ tests/      Unit и integration tests.
   docs/MASCOT_TZ.md
   docs/MEMORY.md
   docs/MENTOR_BRIEFING.md
+  docs/Phase2/UNA_Phase2_Step1.5_Routing_Reconciliation_Brief.md
+  docs/Phase2/UNA_Phase2_Step2_Cognitive_Routing_Adaptation.md
+  docs/Phase2/UNA_Phase2_Step2_Cognitive_Routing_Architecture.md
+  docs/Phase2/UNA_Phase2_Step2_Prompt_for_Lead.md
   docs/SECURITY.md
   docs/UNA_Research.pdf
   docs/design/GRAMMAR_INTERACTION_v0.1.md
@@ -167,6 +173,45 @@ tests/      Unit и integration tests.
   docs/design/prototype-scene-v0.2/index.html
   docs/design/prototype-scene-v0.2/scene.css
   docs/design/prototype-scene-v0.2/scene.js
+  docs/design/prototype-scene-vNext/.review-profile/Code Cache/js/index
+  docs/design/prototype-scene-vNext/.review-profile/Code Cache/js/index-dir/the-real-index
+  docs/design/prototype-scene-vNext/.review-profile/Code Cache/wasm/index
+  docs/design/prototype-scene-vNext/.review-profile/Code Cache/wasm/index-dir/the-real-index
+  docs/design/prototype-scene-vNext/.review-profile/Local State
+  docs/design/prototype-scene-vNext/.review-profile/Local Storage/leveldb/CURRENT
+  docs/design/prototype-scene-vNext/.review-profile/Local Storage/leveldb/LOCK
+  docs/design/prototype-scene-vNext/.review-profile/Local Storage/leveldb/LOG
+  docs/design/prototype-scene-vNext/.review-profile/Local Storage/leveldb/LOG.old
+  docs/design/prototype-scene-vNext/.review-profile/Local Storage/leveldb/MANIFEST-000001
+  docs/design/prototype-scene-vNext/.review-profile/Network/Network Persistent State
+  docs/design/prototype-scene-vNext/.review-profile/Network/NetworkDataMigrated
+  docs/design/prototype-scene-vNext/.review-profile/Network/Trust Tokens
+  docs/design/prototype-scene-vNext/.review-profile/Network/Trust Tokens-journal
+  docs/design/prototype-scene-vNext/.review-profile/Preferences
+  docs/design/prototype-scene-vNext/.review-profile/Session Storage/CURRENT
+  docs/design/prototype-scene-vNext/.review-profile/Session Storage/LOCK
+  docs/design/prototype-scene-vNext/.review-profile/Session Storage/LOG
+  docs/design/prototype-scene-vNext/.review-profile/Session Storage/LOG.old
+  docs/design/prototype-scene-vNext/.review-profile/Session Storage/MANIFEST-000001
+  docs/design/prototype-scene-vNext/.review-profile/Shared Dictionary/cache/index
+  docs/design/prototype-scene-vNext/.review-profile/Shared Dictionary/cache/index-dir/the-real-index
+  docs/design/prototype-scene-vNext/.review-profile/Shared Dictionary/db
+  docs/design/prototype-scene-vNext/.review-profile/Shared Dictionary/db-journal
+  docs/design/prototype-scene-vNext/README.md
+  docs/design/prototype-scene-vNext/index.html
+  docs/design/prototype-scene-vNext/prototype.css
+  docs/design/prototype-scene-vNext/prototype.js
+  docs/design/prototype-scene-vNext/review.cjs
+  docs/design/prototype-scene-vNext/review/control-a1.png
+  docs/design/prototype-scene-vNext/review/control-a3.png
+  docs/design/prototype-scene-vNext/review/control-v02-conversation.png
+  docs/design/prototype-scene-vNext/review/control-v02.png
+  docs/design/prototype-scene-vNext/review/next-current.png
+  docs/design/prototype-scene-vNext/review/next-right.png
+  docs/design/prototype-scene-vNext/review/next-stopped.png
+  docs/design/prototype-scene-vNext/review/next-streaming.png
+  docs/design/prototype-scene-vNext/review/next-working.png
+  docs/design/prototype-scene-vNext/review/result.json
   docs/design/wireframes/01-idle.md
   docs/design/wireframes/02-speaking.md
   docs/design/wireframes/03-working.md
@@ -175,13 +220,23 @@ tests/      Unit и integration tests.
   docs/history/README.md
   docs/history/audits/AUDIT_REPORT_2026-06-29.md
   docs/history/planning/TASK_BOARD_2026-07.md
+  docs/reports/k3/README.md
   docs/research/README.md
   docs/research/UNA_Deep_Research_v4.1_2026-09-15.md
+  docs/research/UNA_Deep_Research_v4.2_2026-09-18.md
+  docs/research/architecture-synthesis-cognitive-runtime.md
   docs/research/catalog.md
   docs/research/decision-log.md
   docs/research/implementation-map.md
+  docs/research/k3-autonomous-workzone-proposal.md
+  docs/research/needle-action-model.md
   docs/research/phase-1-scope.md
+  docs/research/phase-2-memory-research.md
+  docs/research/phase-2-step-1.5-routing-reconciliation.md
+  docs/research/phase-2-step-2-cognitive-routing-proposal.md
   docs/research/research-backlog.md
+  docs/research/system-one-decision-models.md
+  docs/research/task-context-isolation.md
   docs/research/una-gap-map.md
   docs/research/verification-log.md
 
