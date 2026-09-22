@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-22T19:04:20.410Z",
+  "generatedAt": "2026-09-22T19:08:19.961Z",
   "note": "Автогенерируется scripts/sync-manifest.js. Единый источник правды для verify-manifest.js.",
   "excludeDirs": [
     "node_modules/",
@@ -39,7 +39,7 @@
     "desktop.ini",
     "scripts/manifest-files.json"
   ],
-  "total": 297,
+  "total": 299,
   "files": [
     ".cursorrules",
     ".env.example",
@@ -150,6 +150,7 @@
     "docs/tasks/k3/TASK-001-compression-tests.md",
     "docs/tasks/k3/TASK-002-resource-manager-tests.md",
     "docs/tasks/k3/TASK-003-states-modes-tests.md",
+    "docs/tasks/k3/TASK-004-attention-manager-tests.md",
     "electron-builder.yml",
     "electron/agents/index.ts",
     "electron/agents/rlm-extensions.ts",
@@ -318,6 +319,7 @@
     "start.ps1",
     "start.sh",
     "tailwind.config.js",
+    "tests/ai/attention-manager.test.ts",
     "tests/ai/code-tools-integration.test.ts",
     "tests/ai/code-tools.test.ts",
     "tests/ai/compression.test.ts",

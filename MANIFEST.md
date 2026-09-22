@@ -72,7 +72,7 @@ tests/      Unit и integration tests.
 > Источник правды: `scripts/manifest-files.json`. Обновление: `node scripts/sync-manifest.js`.
 > Не редактировать вручную — блок перезаписывается.
 
-> **Всего файлов:** 297 · **Сгенерировано:** 2026-09-22
+> **Всего файлов:** 299 · **Сгенерировано:** 2026-09-22
 
 ```
 ## .github (3)
@@ -143,7 +143,7 @@ tests/      Unit и integration tests.
   assets/sprites/una_32.png
   assets/sprites/una_33.png
 
-## docs (60)
+## docs (61)
   docs/ARCHITECTURE.md
   docs/BACKGROUND.md
   docs/CODE.md
@@ -204,6 +204,7 @@ tests/      Unit и integration tests.
   docs/tasks/k3/TASK-001-compression-tests.md
   docs/tasks/k3/TASK-002-resource-manager-tests.md
   docs/tasks/k3/TASK-003-states-modes-tests.md
+  docs/tasks/k3/TASK-004-attention-manager-tests.md
 
 ## electron (82)
   electron/agents/index.ts
@@ -371,7 +372,8 @@ tests/      Unit и integration tests.
   src/main.tsx
   src/styles/index.css
 
-## tests (17)
+## tests (18)
+  tests/ai/attention-manager.test.ts
   tests/ai/code-tools-integration.test.ts
   tests/ai/code-tools.test.ts
   tests/ai/compression.test.ts
