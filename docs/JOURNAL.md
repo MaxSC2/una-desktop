@@ -166,3 +166,37 @@
 **Коммит:** `test(memory): P1-1 миграционные тесты M6 — старая БД, рестарт, FTS`
 
 **Дальше:** P1-2 injection-фикстуры (`tests/safety/indirect-injection.test.ts`) — по scope ждёт своей очереди.
+
+---
+
+## 2026-09-22 — TASK-001 выполнена: приёмочные тесты compression + починка CI PR #1
+
+**Контекст:** первая задача K3-зоны (DEC-021). Мандат владельца: от failed CI PR #1 до
+финального отчёта без промежуточных остановок.
+
+**CI PR #1 (root cause, по логу раннера):** `npm ci` → postinstall
+`electron-builder install-app-deps` → исходная сборка better-sqlite3 → `prebuild-install`
+без пребилда → `node-gyp 9.4.1` не распознаёт **Visual Studio 18** на новом образе
+`windows-latest` (`unknown version "undefined"`). Падали Lint и Type Check на шаге
+Install dependencies. **Фикс:** `npm ci --ignore-scripts` во всех трёх джобах (`596ae18`) —
+ни одна CI-джоба не исполняет нативные модули/бинарь electron. CI зелёный (run 35763907470).
+
+**TASK-001 acceptance:** `tests/ai/compression.test.ts` — 26 кейсов по контракту
+(все 4 функции, use_count>=5, защита project/preference, лимиты 10/20/5, моки LLM,
+эпизодический fallback-гейт, регрессии). Прод-код не тронут (P1-2) — расхождений
+код/контракт нет. Проверки: vitest 26/26 и полный набор 276/276 · tsc electron 0 ·
+tsc root 0 · verify-manifest 291/291 (0/0).
+
+**Попутный фикс (`f16f032`):** sync/verify-manifest исключают `.git`-gitfile
+(артефакт worktree; раньше попадал в манифест).
+
+**Блокер (требует человека):** merge PR #1 упирается в ruleset «1 approving review
+with write access»; единственный аккаунт с write access — автор PR, self-approve
+невозможен. Нужен Approve → Merge в GitHub UI. Открытый процессный вопрос: DEC-011
+(«коммит в main») vs PR-based workflow — вынесено в отчёт, DEC-011 не менялся.
+
+**Коммиты на `k3/task-001-compression-tests`:** `596ae18` (ci) · `f16f032` (manifest-fix) ·
+`753b1aa` (tests) · docs-коммит с этим журналом и отчётом `docs/reports/k3/2026-09-22-task-001.md`.
+
+**Дальше:** TASK-002 — приёмочные тесты `electron/ai/resource-manager.ts` (рекомендация);
+pending-задача №6 (`.review-profile/` → EXCLUDE_DIRS) ждёт решения о семантике манифеста.

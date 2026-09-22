@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-22T18:09:14.149Z",
+  "generatedAt": "2026-09-22T18:13:13.293Z",
   "note": "Автогенерируется scripts/sync-manifest.js. Единый источник правды для verify-manifest.js.",
   "excludeDirs": [
     "node_modules/",
@@ -39,7 +39,7 @@
     "desktop.ini",
     "scripts/manifest-files.json"
   ],
-  "total": 291,
+  "total": 292,
   "files": [
     ".cursorrules",
     ".env.example",
@@ -127,6 +127,7 @@
     "docs/history/README.md",
     "docs/history/audits/AUDIT_REPORT_2026-06-29.md",
     "docs/history/planning/TASK_BOARD_2026-07.md",
+    "docs/reports/k3/2026-09-22-task-001.md",
     "docs/reports/k3/README.md",
     "docs/research/README.md",
     "docs/research/UNA_Deep_Research_v4.1_2026-09-15.md",
