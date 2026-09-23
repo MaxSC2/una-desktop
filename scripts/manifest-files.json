@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-23T04:45:05.535Z",
+  "generatedAt": "2026-09-23T04:47:52.119Z",
   "note": "Автогенерируется scripts/sync-manifest.js. Единый источник правды для verify-manifest.js.",
   "excludeDirs": [
     "node_modules/",
@@ -39,7 +39,7 @@
     "desktop.ini",
     "scripts/manifest-files.json"
   ],
-  "total": 301,
+  "total": 305,
   "files": [
     ".cursorrules",
     ".env.example",
@@ -152,6 +152,8 @@
     "docs/tasks/k3/TASK-003-states-modes-tests.md",
     "docs/tasks/k3/TASK-004-attention-manager-tests.md",
     "docs/tasks/k3/TASK-005-monologue-tests.md",
+    "docs/tasks/k3/TASK-006-identity-tests.md",
+    "docs/tasks/k3/TASK-006-world-model-tests.md",
     "electron-builder.yml",
     "electron/agents/index.ts",
     "electron/agents/rlm-extensions.ts",
@@ -319,6 +321,7 @@
     "start.bat",
     "start.ps1",
     "start.sh",
+    "t006.txt",
     "tailwind.config.js",
     "tests/ai/attention-manager.test.ts",
     "tests/ai/code-tools-integration.test.ts",
@@ -332,6 +335,7 @@
     "tests/ai/tool-loop.test.ts",
     "tests/ai/web-tools-integration.test.ts",
     "tests/ai/web-tools.test.ts",
+    "tests/ai/world-model.test.ts",
     "tests/memory/manager.test.ts",
     "tests/memory/migration.test.ts",
     "tests/memory/rlm.test.ts",

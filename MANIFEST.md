@@ -72,7 +72,7 @@ tests/      Unit и integration tests.
 > Источник правды: `scripts/manifest-files.json`. Обновление: `node scripts/sync-manifest.js`.
 > Не редактировать вручную — блок перезаписывается.
 
-> **Всего файлов:** 301 · **Сгенерировано:** 2026-09-23
+> **Всего файлов:** 305 · **Сгенерировано:** 2026-09-23
 
 ```
 ## .github (3)
@@ -80,7 +80,7 @@ tests/      Unit и integration tests.
   .github/workflows/ci.yml
   .github/workflows/release.yml
 
-## (root) (24)
+## (root) (25)
   .cursorrules
   .env.example
   .gitattributes
@@ -101,6 +101,7 @@ tests/      Unit и integration tests.
   start.bat
   start.ps1
   start.sh
+  t006.txt
   tailwind.config.js
   tsconfig.json
   vite.config.ts
@@ -143,7 +144,7 @@ tests/      Unit и integration tests.
   assets/sprites/una_32.png
   assets/sprites/una_33.png
 
-## docs (62)
+## docs (64)
   docs/ARCHITECTURE.md
   docs/BACKGROUND.md
   docs/CODE.md
@@ -206,6 +207,8 @@ tests/      Unit и integration tests.
   docs/tasks/k3/TASK-003-states-modes-tests.md
   docs/tasks/k3/TASK-004-attention-manager-tests.md
   docs/tasks/k3/TASK-005-monologue-tests.md
+  docs/tasks/k3/TASK-006-identity-tests.md
+  docs/tasks/k3/TASK-006-world-model-tests.md
 
 ## electron (82)
   electron/agents/index.ts
@@ -373,7 +376,7 @@ tests/      Unit и integration tests.
   src/main.tsx
   src/styles/index.css
 
-## tests (19)
+## tests (20)
   tests/ai/attention-manager.test.ts
   tests/ai/code-tools-integration.test.ts
   tests/ai/code-tools.test.ts
@@ -386,6 +389,7 @@ tests/      Unit и integration tests.
   tests/ai/tool-loop.test.ts
   tests/ai/web-tools-integration.test.ts
   tests/ai/web-tools.test.ts
+  tests/ai/world-model.test.ts
   tests/memory/manager.test.ts
   tests/memory/migration.test.ts
   tests/memory/rlm.test.ts
