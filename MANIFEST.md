@@ -72,7 +72,7 @@ tests/      Unit и integration tests.
 > Источник правды: `scripts/manifest-files.json`. Обновление: `node scripts/sync-manifest.js`.
 > Не редактировать вручную — блок перезаписывается.
 
-> **Всего файлов:** 317 · **Сгенерировано:** 2026-09-23
+> **Всего файлов:** 318 · **Сгенерировано:** 2026-09-23
 
 ```
 ## .github (3)
@@ -143,7 +143,7 @@ tests/      Unit и integration tests.
   assets/sprites/una_32.png
   assets/sprites/una_33.png
 
-## docs (71)
+## docs (72)
   docs/ARCHITECTURE.md
   docs/BACKGROUND.md
   docs/CODE.md
@@ -184,6 +184,7 @@ tests/      Unit и integration tests.
   docs/reports/k3/2026-09-22-task-001.md
   docs/reports/k3/2026-09-23-wave2-task-002-011.md
   docs/reports/k3/2026-09-24-task-012.md
+  docs/reports/k3/2026-09-24-task-013.md
   docs/reports/k3/README.md
   docs/research/README.md
   docs/research/UNA_Deep_Research_v4.1_2026-09-15.md
@@ -208,13 +209,13 @@ tests/      Unit и integration tests.
   docs/tasks/k3/TASK-003-states-modes-tests.md
   docs/tasks/k3/TASK-004-attention-manager-tests.md
   docs/tasks/k3/TASK-005-monologue-tests.md
-  docs/tasks/k3/TASK-006-identity-tests.md
   docs/tasks/k3/TASK-006-world-model-tests.md
   docs/tasks/k3/TASK-007-meta-learning-tests.md
   docs/tasks/k3/TASK-008-identity-tests.md
   docs/tasks/k3/TASK-009-background-monitor-tests.md
   docs/tasks/k3/TASK-010-proactive-tests.md
   docs/tasks/k3/TASK-011-life-loop-tests.md
+  docs/tasks/k3/TASK-012-executive-tests.md
 
 ## electron (82)
   electron/agents/index.ts

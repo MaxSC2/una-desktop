@@ -5,15 +5,13 @@
  * Изоляция: getDb из ../memory/store замокан hoisted-инстансом better-sqlite3
  * (:memory:, таблица goals по DDL store.ts); vi.resetModules() на тест.
  *
- * Зафиксированные эджи (фактическое поведение кода @ c974c0e):
- * - parseGoalToken create: regex `(.+)\s*\|?\s*(.+)$` — pipe необязателен и
- *   ИГНОРИРУЕТСЯ: жадная группа съедает всё, кроме последнего символа.
- *   'create: do X | a, b, c' → description 'do X | a, b,' + subgoals ['c'];
- *   'create: do X' → description 'do' + subgoals ['X'] (теряется токен).
+ * Зафиксированные эджи (фактическое поведение кода):
  * - updateSubgoalStatus при пустых subgoals: index 0 не проходит bounds-check
  *   (0 >= 0) → silent no-op (NaN-progress недостижим через публичный API).
  * - resumeGoal не-interrupted цели: UPDATE no-op, но возвращает Goal
  *   со статусом как есть (snapshot не трогается).
+ * (TASK-013: дефект parseGoalToken create исправлен — пайп обязателен,
+ * description нежадный; эдж-тесты инвертированы в позитивные.)
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import Database from 'better-sqlite3';
@@ -261,24 +259,18 @@ describe('parseGoalToken', () => {
     expect(ex.parseGoalToken('[GOAL] cancel: 42')).toEqual({ action: 'cancel', goalId: 42 });
   });
 
-  it('ЭДЖ: create с pipe — pipe игнорируется, жадный (.+) съедает шаги', async () => {
+  it('create с pipe: description нежадный до первого «|», шаги по запятым (после TASK-013 fix)', async () => {
     const ex = await getEx();
-    // Фактическое поведение regex (.+)\s*\|?\s*(.+)$: pipe необязателен,
-    // description получает всё, кроме последнего символа строки.
     expect(ex.parseGoalToken('[GOAL] create: do X | a, b, c')).toEqual({
       action: 'create',
-      description: 'do X | a, b,',
-      subgoals: ['c'],
+      description: 'do X',
+      subgoals: ['a', 'b', 'c'],
     });
   });
 
-  it('ЭДЖ: create без pipe — теряется последний токен описания', async () => {
+  it('create без pipe → null (после TASK-013 fix: пайп — обязательный разделитель)', async () => {
     const ex = await getEx();
-    expect(ex.parseGoalToken('[GOAL] create: do X')).toEqual({
-      action: 'create',
-      description: 'do',
-      subgoals: ['X'],
-    });
+    expect(ex.parseGoalToken('[GOAL] create: do X')).toBeNull();
   });
 
   it('мусор → null', async () => {

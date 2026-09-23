@@ -44,11 +44,26 @@ describe('detectCorrection', () => {
     }
   });
 
-  it('ЗАФИКСИРОВАННЫЙ ДЕФЕКТ: русские коррекции НЕ распознаются — \\b не работает с кириллицей', async () => {
+  it('русские коррекции распознаются (после TASK-013 fix: lookaround-границы)', async () => {
     const ml = await getML();
-    // Все русские паттерны построены на /\bслово\b/i, но в JS \w = [A-Za-z0-9_],
-    // кириллица — \W, поэтому граница \b рядом с русской буквой никогда не матчится.
     for (const msg of ['нет, это не то', 'исправь пожалуйста', 'ты неправ', 'там ошибка']) {
+      expect(ml.detectCorrection(msg)).toBe(true);
+    }
+  });
+
+  it('новые позитивные RU-кейсы: стоп/не так/ошибка/не исправь', async () => {
+    const ml = await getML();
+    for (const msg of [
+      'стоп, ты не так понял', 'это ошибка', 'не исправь обратно', 'неверно посчитал', 'я хотел другое',
+    ]) {
+      expect(ml.detectCorrection(msg)).toBe(true);
+    }
+  });
+
+  it('частичные вхождения НЕ матчатся: границы слова работают', async () => {
+    const ml = await getML();
+    // 'сеть' не должна цеплять 'нет'; 'северный' — 'верн'; 'knowledge' — 'no'
+    for (const msg of ['настрой сеть', 'северный ветер', 'share knowledge']) {
       expect(ml.detectCorrection(msg)).toBe(false);
     }
   });
@@ -87,12 +102,32 @@ describe('learnFromMessage → preferences → insights', () => {
     expect(i).toMatchObject({ confidence: 0.5, source: 'preference' });
   });
 
-  it('ЗАФИКСИРОВАННЫЙ ДЕФЕКТ: русские фразы предпочтений не детектируются (\\b + кириллица)', async () => {
+  it('русские фразы предпочтений детектируются (после TASK-013 fix)', async () => {
     const ml = await getML();
     ml.learnFromMessage('будь короче');
+    expect(ml.getInsights().map(i => i.pattern)).toContain('Пользователь предпочитает краткие ответы');
+
+    ml.resetLearning();
     ml.learnFromMessage('ответь подробнее');
+    expect(ml.getInsights().map(i => i.pattern)).toContain('Пользователь предпочитает развёрнутые ответы');
+
+    ml.resetLearning();
     ml.learnFromMessage('просто ответь без поиска');
-    expect(ml.getInsights()).toEqual([]);
+    expect(ml.getInsights().map(i => i.pattern)).toContain('Пользователь предпочитает минимум инструментов');
+  });
+
+  it('новые позитивные RU-кейсы: покороче/разжуй/не надо искать', async () => {
+    const ml = await getML();
+    ml.learnFromMessage('отвечай покороче, без воды');
+    expect(ml.getInsights().map(i => i.pattern)).toContain('Пользователь предпочитает краткие ответы');
+
+    ml.resetLearning();
+    ml.learnFromMessage('разжуй по полкам');
+    expect(ml.getInsights().map(i => i.pattern)).toContain('Пользователь предпочитает развёрнутые ответы');
+
+    ml.resetLearning();
+    ml.learnFromMessage('не надо ничего искать');
+    expect(ml.getInsights().map(i => i.pattern)).toContain('Пользователь предпочитает минимум инструментов');
   });
 
   it('сообщение без паттернов → инсайтов нет', async () => {
