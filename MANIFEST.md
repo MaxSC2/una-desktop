@@ -80,7 +80,7 @@ tests/      Unit и integration tests.
   .github/workflows/ci.yml
   .github/workflows/release.yml
 
-## (root) (25)
+## (root) (24)
   .cursorrules
   .env.example
   .gitattributes
@@ -101,7 +101,6 @@ tests/      Unit и integration tests.
   start.bat
   start.ps1
   start.sh
-  t006.txt
   tailwind.config.js
   tsconfig.json
   vite.config.ts
@@ -207,8 +206,8 @@ tests/      Unit и integration tests.
   docs/tasks/k3/TASK-003-states-modes-tests.md
   docs/tasks/k3/TASK-004-attention-manager-tests.md
   docs/tasks/k3/TASK-005-monologue-tests.md
-  docs/tasks/k3/TASK-006-identity-tests.md
   docs/tasks/k3/TASK-006-world-model-tests.md
+  docs/tasks/k3/TASK-007-meta-learning-tests.md
 
 ## electron (82)
   electron/agents/index.ts
@@ -376,11 +375,12 @@ tests/      Unit и integration tests.
   src/main.tsx
   src/styles/index.css
 
-## tests (20)
+## tests (21)
   tests/ai/attention-manager.test.ts
   tests/ai/code-tools-integration.test.ts
   tests/ai/code-tools.test.ts
   tests/ai/compression.test.ts
+  tests/ai/meta-learning.test.ts
   tests/ai/modes.test.ts
   tests/ai/monologue.test.ts
   tests/ai/resource-manager.test.ts
