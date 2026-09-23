@@ -200,3 +200,32 @@ with write access»; единственный аккаунт с write access —
 
 **Дальше:** TASK-002 — приёмочные тесты `electron/ai/resource-manager.ts` (рекомендация);
 pending-задача №6 (`.review-profile/` → EXCLUDE_DIRS) ждёт решения о семантике манифеста.
+
+---
+
+## 2026-09-23 — K3 wave 2: пробел №5 закрыт целиком (TASK-002…TASK-011)
+
+**Контекст:** продолжение автономной волны K3 по мандату владельца. Стек stacked-веток
+`k3/task-002…011`, каждая от предыдущей, вершина `a557494`.
+
+**Результат:** 10 приёмочных наборов для `electron/ai/*` — resource-manager (37), states+modes (24),
+attention-manager (14), monologue (18), world-model (12), meta-learning (20), identity (13),
+background-monitor (12), proactive (13), life-loop (27). **180 новых кейсов; полный набор 466/466
+(25 файлов), tsc 0, manifest 0/0.** Прод-код не тронут (P1-2, DEC-008).
+
+**Главная находка (F-кандидат):** `meta-learning.ts` — все RU-regex используют `\b`, который не
+работает с кириллицей (`\w` = ASCII) → детекция поправок/предпочтений для русского ввода мертва.
+Зафиксировано тестами «как есть» (EN-паттерны), вопрос вынесен Архитектору в отчёте волны
+`docs/reports/k3/2026-09-23-wave2-task-002-011.md`.
+
+**Дефлейки волны:** world-model `sessionId` из `Date.now()` (spyOn-сдвиг, `8b7675a`); life-loop
+night-maintenance — тысячи фейковых тиков на прокрутке часов → `tickIntervalMs: 10_000` (`a557494`).
+
+**PR-статус:** PR #1 (`chore/k3-task-001-prep`) — **MERGED 2026-09-22** (`3e80ae4` в main).
+PR #2 (TASK-001 tests) — OPEN, ждёт approve (review-gate). Стек волны 2 запушен в origin
+(`k3/task-002…011`); merge — цепочкой после PR #2.
+
+**Implementation-map:** пробел №5 → ЗАКРЫТ (evidence в строке №5). Открыты: №6 (`.review-profile/`
+→ EXCLUDE_DIRS — ждёт решения о семантике манифеста), Graphiti E2E (Phase 2), мёртвый узел
+agents/autonomous-loop/skills (Phase 2, DEC-008).
+

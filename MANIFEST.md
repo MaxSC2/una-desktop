@@ -72,7 +72,7 @@ tests/      Unit и integration tests.
 > Источник правды: `scripts/manifest-files.json`. Обновление: `node scripts/sync-manifest.js`.
 > Не редактировать вручную — блок перезаписывается.
 
-> **Всего файлов:** 313 · **Сгенерировано:** 2026-09-23
+> **Всего файлов:** 314 · **Сгенерировано:** 2026-09-23
 
 ```
 ## .github (3)
@@ -143,7 +143,7 @@ tests/      Unit и integration tests.
   assets/sprites/una_32.png
   assets/sprites/una_33.png
 
-## docs (68)
+## docs (69)
   docs/ARCHITECTURE.md
   docs/BACKGROUND.md
   docs/CODE.md
@@ -182,6 +182,7 @@ tests/      Unit и integration tests.
   docs/history/audits/AUDIT_REPORT_2026-06-29.md
   docs/history/planning/TASK_BOARD_2026-07.md
   docs/reports/k3/2026-09-22-task-001.md
+  docs/reports/k3/2026-09-23-wave2-task-002-011.md
   docs/reports/k3/README.md
   docs/research/README.md
   docs/research/UNA_Deep_Research_v4.1_2026-09-15.md
