@@ -8,7 +8,11 @@
   (vitest 250/250, tsc electron 0). `.env` отсутствует по построению (не в git, локально нет).
   node_modules зеркалирован с основного дерева — `npm install` в worktree не запускать
   (npm bug #4828: битая распаковка optional-deps).
-- **Статус:** READY. **Блокер запуска:** ruleset на `main` (lead настраивает в GitHub UI).
+- **Статус:** DONE (2026-09-22). Выполнено в K3-зоне по мандату владельца: 26 кейсов,
+  `tests/ai/compression.test.ts`; проверки: vitest 26/26 и 276/276, tsc electron/root 0,
+  verify-manifest 291/291 (0/0). Отчёт: `docs/reports/k3/2026-09-22-task-001.md`.
+  Коммиты: `f16f032` (manifest-fix), `753b1aa` (tests). Merge в main — через PR после
+  решения владельца о review-gate (PR #1 ждёт Approve).
 
 ---
 

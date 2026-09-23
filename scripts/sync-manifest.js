@@ -38,7 +38,8 @@ const EXCLUDE_DIRS = [
   '.kilo/',
 ];
 const EXCLUDE_SUFFIXES = ['.log', '.zip', '.db', '.db-journal', '.db-wal', '.db-shm', '.bak', '.tmp', '.swp', '.swo'];
-const EXCLUDE_NAMES = ['package-lock.json', 'package.json.bak', 'commit-msg.txt', 'nul', 'Thumbs.db', 'desktop.ini', 'scripts/manifest-files.json'];
+// '.git' — gitfile worktree/submodule (в обычном репо '.git/' — каталог, ловится EXCLUDE_DIRS)
+const EXCLUDE_NAMES = ['.git', 'package-lock.json', 'package.json.bak', 'commit-msg.txt', 'nul', 'Thumbs.db', 'desktop.ini', 'scripts/manifest-files.json'];
 
 function isExcluded(rel) {
   if (EXCLUDE_DIRS.some((d) => rel.startsWith(d))) return true;
