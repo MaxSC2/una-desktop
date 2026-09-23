@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-22T19:08:19.961Z",
+  "generatedAt": "2026-09-23T04:45:05.535Z",
   "note": "Автогенерируется scripts/sync-manifest.js. Единый источник правды для verify-manifest.js.",
   "excludeDirs": [
     "node_modules/",
@@ -39,7 +39,7 @@
     "desktop.ini",
     "scripts/manifest-files.json"
   ],
-  "total": 299,
+  "total": 301,
   "files": [
     ".cursorrules",
     ".env.example",
@@ -151,6 +151,7 @@
     "docs/tasks/k3/TASK-002-resource-manager-tests.md",
     "docs/tasks/k3/TASK-003-states-modes-tests.md",
     "docs/tasks/k3/TASK-004-attention-manager-tests.md",
+    "docs/tasks/k3/TASK-005-monologue-tests.md",
     "electron-builder.yml",
     "electron/agents/index.ts",
     "electron/agents/rlm-extensions.ts",
@@ -324,6 +325,7 @@
     "tests/ai/code-tools.test.ts",
     "tests/ai/compression.test.ts",
     "tests/ai/modes.test.ts",
+    "tests/ai/monologue.test.ts",
     "tests/ai/resource-manager.test.ts",
     "tests/ai/router.test.ts",
     "tests/ai/states.test.ts",
