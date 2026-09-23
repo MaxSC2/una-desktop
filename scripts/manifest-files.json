@@ -39,7 +39,7 @@
     "desktop.ini",
     "scripts/manifest-files.json"
   ],
-  "total": 307,
+  "total": 309,
   "files": [
     ".cursorrules",
     ".env.example",
@@ -155,6 +155,7 @@
     "docs/tasks/k3/TASK-006-world-model-tests.md",
     "docs/tasks/k3/TASK-007-meta-learning-tests.md",
     "docs/tasks/k3/TASK-008-identity-tests.md",
+    "docs/tasks/k3/TASK-009-background-monitor-tests.md",
     "electron-builder.yml",
     "electron/agents/index.ts",
     "electron/agents/rlm-extensions.ts",
@@ -324,6 +325,7 @@
     "start.sh",
     "tailwind.config.js",
     "tests/ai/attention-manager.test.ts",
+    "tests/ai/background-monitor.test.ts",
     "tests/ai/code-tools-integration.test.ts",
     "tests/ai/code-tools.test.ts",
     "tests/ai/compression.test.ts",
