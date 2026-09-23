@@ -158,7 +158,7 @@ export function formatGoalsForPrompt(): string {
 }
 
 export function parseGoalToken(token: string): { action: string; goalId?: number; subIndex?: number; description?: string; subgoals?: string[] } | null {
-  const createMatch = token.match(/^\[GOAL\]\s+create:\s*(.+)\s*\|?\s*(.+)$/);
+  const createMatch = token.match(/^\[GOAL\]\s+create:\s*(.+?)\s*\|\s*(.+)$/);
   if (createMatch) {
     const description = createMatch[1].trim();
     const subgoalsStr = createMatch[2]?.trim();

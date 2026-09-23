@@ -17,31 +17,43 @@ export interface LearnedPreference {
   lastUpdated: string;
 }
 
+// Границы слова с поддержкой кириллицы (Q-META): в JS \w = [A-Za-z0-9_],
+// поэтому \b не работает рядом с А-Я. Lookaround-границы едины для EN/RU.
+const WB_START = '(?:(?<![A-Za-zА-Яа-яЁё0-9_]))';
+const WB_END = '(?:(?![A-Za-zА-Яа-яЁё0-9_]))';
+const wbr = (body: string) => new RegExp(`${WB_START}${body}${WB_END}`, 'i');
+// Стем-литералы (ошибк-, подробн-, кратк-...) — только начальная граница:
+// конечная граница ломает словоформы ('ошибка', 'подробнее').
+const wbs = (body: string) => new RegExp(`${WB_START}${body}`, 'i');
+
 const CORRECTION_PATTERNS = [
-  /\bнет\b/i, /\bне то\b/i, /\bне так\b/i, /\bисправь\b/i,
-  /\bдругое\b/i, /\bиначе\b/i, /\bне это\b/i, /\bнеправ\b/i,
-  /\bошибк\b/i, /\bневерн\b/i, /\bне нуж\b/i, /\bне про то\b/i,
-  /\bя имел\b.*\bвиду\b/i, /\bя хоте\b.*\bдруго\b/i,
-  /\bstop\b/i, /\bwrong\b/i, /\bno\b/i, /\bnot what\b/i,
-  /\bactually\b.*\bmean\b/i,
+  wbr('нет'), wbr('не то'), wbr('не так'), wbr('исправь'),
+  wbr('другое'), wbr('иначе'), wbr('не это'), wbs('неправ'),
+  wbs('ошибк'), wbs('неверн'), wbs('не нуж'), wbr('не про то'),
+  new RegExp(`${WB_START}я имел${WB_END}.*${WB_START}виду${WB_END}`, 'i'),
+  new RegExp(`${WB_START}я хоте.*${WB_START}друго`, 'i'),
+  wbr('stop'), wbr('wrong'), wbr('no'), wbr('not what'),
+  new RegExp(`${WB_START}actually${WB_END}.*${WB_START}mean${WB_END}`, 'i'),
 ];
 
 const SHORT_ANSWER_PATTERNS = [
-  /\bкороче\b/i, /\bкратк\b/i, /\bне расписыв\b/i, /\bсуть\b/i,
-  /\bкоротко\b/i, /\bлаконичн\b/i, /\bбез воды\b/i,
-  /\bshort\b/i, /\bbrief\b/i, /\bconcise\b/i, /\btldr\b/i,
+  wbr('короче'), wbs('кратк'), wbs('не расписыв'), wbr('суть'),
+  wbr('коротко'), wbs('лаконичн'), wbr('без воды'),
+  wbr('short'), wbr('brief'), wbr('concise'), wbr('tldr'),
 ];
 
 const LONG_ANSWER_PATTERNS = [
-  /\bподробн\b/i, /\bразвернут\b/i, /\bдетальн\b/i, /\bобъясн\b/i,
-  /\bраспиш\b/i, /\bпо полкам\b/i, /\bразжуй\b/i,
-  /\bdetail\b/i, /\bdetailed\b/i, /\belaborate\b/i, /\bin depth\b/i,
+  wbs('подробн'), wbs('развернут'), wbs('детальн'), wbs('объясн'),
+  wbs('распиш'), wbr('по полкам'), wbr('разжуй'),
+  wbr('detail'), wbr('detailed'), wbr('elaborate'), wbr('in depth'),
 ];
 
 const LESS_TOOL_PATTERNS = [
-  /\bне надо\b.*\bискать\b/i, /\bне ищи\b/i, /\bбез поиска\b/i,
-  /\bпросто ответь\b/i, /\bне нужно\b.*\bинструмент\b/i,
-  /\bjust answer\b/i, /\bdon't search\b/i, /\bno tools\b/i,
+  new RegExp(`${WB_START}не надо${WB_END}.*${WB_START}искать${WB_END}`, 'i'),
+  wbr('не ищи'), wbr('без поиска'),
+  wbr('просто ответь'),
+  new RegExp(`${WB_START}не нужно${WB_END}.*${WB_START}инструмент`, 'i'),
+  wbr('just answer'), wbr("don't search"), wbr('no tools'),
 ];
 
 let preferences: LearnedPreference[] = [];
