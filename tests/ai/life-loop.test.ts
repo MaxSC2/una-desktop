@@ -393,7 +393,8 @@ describe('thoughts и night-maintenance', () => {
     mResolve.mockReturnValue('night' as never);
     mMaintenance.mockResolvedValue({ compressed: 2, promoted: 1, demoted: 0 });
     const ll = await getLL();
-    ll.configureLifeLoop({ tickIntervalMs: 100 });
+    // большой интервал: иначе прокрутка 30+ мин фейковых таймеров = тысячи тиков → таймаут
+    ll.configureLifeLoop({ tickIntervalMs: 10_000 });
     ll.startLifeLoop(nullWindow);
     await flushTicks();
     expect(mMaintenance).toHaveBeenCalledTimes(1);
