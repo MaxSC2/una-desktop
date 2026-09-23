@@ -39,7 +39,7 @@
     "desktop.ini",
     "scripts/manifest-files.json"
   ],
-  "total": 311,
+  "total": 313,
   "files": [
     ".cursorrules",
     ".env.example",
@@ -157,6 +157,7 @@
     "docs/tasks/k3/TASK-008-identity-tests.md",
     "docs/tasks/k3/TASK-009-background-monitor-tests.md",
     "docs/tasks/k3/TASK-010-proactive-tests.md",
+    "docs/tasks/k3/TASK-011-life-loop-tests.md",
     "electron-builder.yml",
     "electron/agents/index.ts",
     "electron/agents/rlm-extensions.ts",
@@ -331,6 +332,7 @@
     "tests/ai/code-tools.test.ts",
     "tests/ai/compression.test.ts",
     "tests/ai/identity.test.ts",
+    "tests/ai/life-loop.test.ts",
     "tests/ai/meta-learning.test.ts",
     "tests/ai/modes.test.ts",
     "tests/ai/monologue.test.ts",
