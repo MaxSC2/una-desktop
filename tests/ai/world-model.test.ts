@@ -56,7 +56,10 @@ describe('сессионное состояние', () => {
     const wm = await getWM();
     const before = await wm.buildWorldState();
     wm.incrementMessageCount();
+    // sessionId строится из Date.now() — сдвигаем часы, чтобы id гарантированно сменился
+    const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 1000);
     wm.resetSession();
+    nowSpy.mockRestore();
     const after = await wm.buildWorldState();
     expect(after.messageCount).toBe(0);
     expect(after.sessionId).not.toBe(before.sessionId);
