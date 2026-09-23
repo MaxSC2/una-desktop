@@ -72,7 +72,7 @@ tests/      Unit и integration tests.
 > Источник правды: `scripts/manifest-files.json`. Обновление: `node scripts/sync-manifest.js`.
 > Не редактировать вручную — блок перезаписывается.
 
-> **Всего файлов:** 318 · **Сгенерировано:** 2026-09-23
+> **Всего файлов:** 324 · **Сгенерировано:** 2026-09-23
 
 ```
 ## .github (3)
@@ -143,7 +143,7 @@ tests/      Unit и integration tests.
   assets/sprites/una_32.png
   assets/sprites/una_33.png
 
-## docs (72)
+## docs (75)
   docs/ARCHITECTURE.md
   docs/BACKGROUND.md
   docs/CODE.md
@@ -185,6 +185,7 @@ tests/      Unit и integration tests.
   docs/reports/k3/2026-09-23-wave2-task-002-011.md
   docs/reports/k3/2026-09-24-task-012.md
   docs/reports/k3/2026-09-24-task-013.md
+  docs/reports/k3/2026-09-24-task-014.md
   docs/reports/k3/README.md
   docs/research/README.md
   docs/research/UNA_Deep_Research_v4.1_2026-09-15.md
@@ -216,6 +217,8 @@ tests/      Unit и integration tests.
   docs/tasks/k3/TASK-010-proactive-tests.md
   docs/tasks/k3/TASK-011-life-loop-tests.md
   docs/tasks/k3/TASK-012-executive-tests.md
+  docs/tasks/k3/TASK-013-regex-fixes.md
+  docs/tasks/k3/TASK-014-wave3-state-tests.md
 
 ## electron (82)
   electron/agents/index.ts
@@ -383,13 +386,14 @@ tests/      Unit и integration tests.
   src/main.tsx
   src/styles/index.css
 
-## tests (26)
+## tests (29)
   tests/ai/attention-manager.test.ts
   tests/ai/background-monitor.test.ts
   tests/ai/code-tools-integration.test.ts
   tests/ai/code-tools.test.ts
   tests/ai/compression.test.ts
   tests/ai/executive.test.ts
+  tests/ai/goal-tracker.test.ts
   tests/ai/identity.test.ts
   tests/ai/life-loop.test.ts
   tests/ai/meta-learning.test.ts
@@ -397,11 +401,13 @@ tests/      Unit и integration tests.
   tests/ai/monologue.test.ts
   tests/ai/proactive.test.ts
   tests/ai/resource-manager.test.ts
+  tests/ai/rollback.test.ts
   tests/ai/router.test.ts
   tests/ai/states.test.ts
   tests/ai/tool-loop.test.ts
   tests/ai/web-tools-integration.test.ts
   tests/ai/web-tools.test.ts
+  tests/ai/work-context.test.ts
   tests/ai/world-model.test.ts
   tests/memory/manager.test.ts
   tests/memory/migration.test.ts
