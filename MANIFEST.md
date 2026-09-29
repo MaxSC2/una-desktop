@@ -72,7 +72,7 @@ tests/      Unit и integration tests.
 > Источник правды: `scripts/manifest-files.json`. Обновление: `node scripts/sync-manifest.js`.
 > Не редактировать вручную — блок перезаписывается.
 
-> **Всего файлов:** 324 · **Сгенерировано:** 2026-09-23
+> **Всего файлов:** 330 · **Сгенерировано:** 2026-09-23
 
 ```
 ## .github (3)
@@ -143,7 +143,7 @@ tests/      Unit и integration tests.
   assets/sprites/una_32.png
   assets/sprites/una_33.png
 
-## docs (75)
+## docs (78)
   docs/ARCHITECTURE.md
   docs/BACKGROUND.md
   docs/CODE.md
@@ -186,6 +186,7 @@ tests/      Unit и integration tests.
   docs/reports/k3/2026-09-24-task-012.md
   docs/reports/k3/2026-09-24-task-013.md
   docs/reports/k3/2026-09-24-task-014.md
+  docs/reports/k3/2026-09-24-task-015.md
   docs/reports/k3/README.md
   docs/research/README.md
   docs/research/UNA_Deep_Research_v4.1_2026-09-15.md
@@ -219,6 +220,8 @@ tests/      Unit и integration tests.
   docs/tasks/k3/TASK-012-executive-tests.md
   docs/tasks/k3/TASK-013-regex-fixes.md
   docs/tasks/k3/TASK-014-wave3-state-tests.md
+  docs/tasks/k3/TASK-015-routing-tests.md
+  docs/tasks/k3/TASK-016-wave3-media-review.md
 
 ## electron (82)
   electron/agents/index.ts
@@ -386,15 +389,17 @@ tests/      Unit и integration tests.
   src/main.tsx
   src/styles/index.css
 
-## tests (29)
+## tests (32)
   tests/ai/attention-manager.test.ts
   tests/ai/background-monitor.test.ts
   tests/ai/code-tools-integration.test.ts
   tests/ai/code-tools.test.ts
   tests/ai/compression.test.ts
   tests/ai/executive.test.ts
+  tests/ai/fast-path.test.ts
   tests/ai/goal-tracker.test.ts
   tests/ai/identity.test.ts
+  tests/ai/intent.test.ts
   tests/ai/life-loop.test.ts
   tests/ai/meta-learning.test.ts
   tests/ai/modes.test.ts
@@ -403,6 +408,7 @@ tests/      Unit и integration tests.
   tests/ai/resource-manager.test.ts
   tests/ai/rollback.test.ts
   tests/ai/router.test.ts
+  tests/ai/semantic-router.test.ts
   tests/ai/states.test.ts
   tests/ai/tool-loop.test.ts
   tests/ai/web-tools-integration.test.ts
