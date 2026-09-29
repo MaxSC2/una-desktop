@@ -72,7 +72,7 @@ tests/      Unit и integration tests.
 > Источник правды: `scripts/manifest-files.json`. Обновление: `node scripts/sync-manifest.js`.
 > Не редактировать вручную — блок перезаписывается.
 
-> **Всего файлов:** 335 · **Сгенерировано:** 2026-09-29
+> **Всего файлов:** 340 · **Сгенерировано:** 2026-09-29
 
 ```
 ## .github (3)
@@ -143,7 +143,7 @@ tests/      Unit и integration tests.
   assets/sprites/una_32.png
   assets/sprites/una_33.png
 
-## docs (82)
+## docs (83)
   docs/ARCHITECTURE.md
   docs/BACKGROUND.md
   docs/CODE.md
@@ -189,6 +189,7 @@ tests/      Unit и integration tests.
   docs/reports/k3/2026-09-24-task-013.md
   docs/reports/k3/2026-09-24-task-014.md
   docs/reports/k3/2026-09-24-task-015.md
+  docs/reports/k3/2026-09-24-task-016.md
   docs/reports/k3/README.md
   docs/research/README.md
   docs/research/UNA_Deep_Research_v4.1_2026-09-15.md
@@ -393,7 +394,8 @@ tests/      Unit и integration tests.
   src/main.tsx
   src/styles/index.css
 
-## tests (33)
+## tests (37)
+  tests/ai/asr.test.ts
   tests/ai/attention-manager.test.ts
   tests/ai/background-monitor.test.ts
   tests/ai/code-tools-integration.test.ts
@@ -414,8 +416,11 @@ tests/      Unit и integration tests.
   tests/ai/rollback.test.ts
   tests/ai/router.test.ts
   tests/ai/semantic-router.test.ts
+  tests/ai/self-review.test.ts
   tests/ai/states.test.ts
   tests/ai/tool-loop.test.ts
+  tests/ai/tts.test.ts
+  tests/ai/vram-gate.test.ts
   tests/ai/web-tools-integration.test.ts
   tests/ai/web-tools.test.ts
   tests/ai/work-context.test.ts
