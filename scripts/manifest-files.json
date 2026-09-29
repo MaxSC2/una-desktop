@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-29T18:00:51.538Z",
+  "generatedAt": "2026-09-29T18:19:47.980Z",
   "note": "Автогенерируется scripts/sync-manifest.js. Единый источник правды для verify-manifest.js.",
   "excludeDirs": [
     "node_modules/",
@@ -39,7 +39,7 @@
     "desktop.ini",
     "scripts/manifest-files.json"
   ],
-  "total": 332,
+  "total": 335,
   "files": [
     ".cursorrules",
     ".env.example",
@@ -129,6 +129,7 @@
     "docs/history/planning/TASK_BOARD_2026-07.md",
     "docs/reports/k3/2026-09-22-task-001.md",
     "docs/reports/k3/2026-09-23-wave2-task-002-011.md",
+    "docs/reports/k3/2026-09-24-task-004-fix.md",
     "docs/reports/k3/2026-09-24-task-004-inv.md",
     "docs/reports/k3/2026-09-24-task-012.md",
     "docs/reports/k3/2026-09-24-task-013.md",
@@ -157,6 +158,7 @@
     "docs/tasks/k3/TASK-002-resource-manager-tests.md",
     "docs/tasks/k3/TASK-003-states-modes-tests.md",
     "docs/tasks/k3/TASK-004-attention-manager-tests.md",
+    "docs/tasks/k3/TASK-004-mcp-disconnect-fix.md",
     "docs/tasks/k3/TASK-004-mcp-disconnect-inv.md",
     "docs/tasks/k3/TASK-005-monologue-tests.md",
     "docs/tasks/k3/TASK-006-world-model-tests.md",
@@ -349,6 +351,7 @@
     "tests/ai/identity.test.ts",
     "tests/ai/intent.test.ts",
     "tests/ai/life-loop.test.ts",
+    "tests/ai/mcp-disconnect.test.ts",
     "tests/ai/meta-learning.test.ts",
     "tests/ai/modes.test.ts",
     "tests/ai/monologue.test.ts",
