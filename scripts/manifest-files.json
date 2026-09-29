@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-29T18:19:47.980Z",
+  "generatedAt": "2026-09-29T18:41:20.246Z",
   "note": "Автогенерируется scripts/sync-manifest.js. Единый источник правды для verify-manifest.js.",
   "excludeDirs": [
     "node_modules/",
@@ -39,7 +39,7 @@
     "desktop.ini",
     "scripts/manifest-files.json"
   ],
-  "total": 335,
+  "total": 338,
   "files": [
     ".cursorrules",
     ".env.example",
@@ -135,6 +135,7 @@
     "docs/reports/k3/2026-09-24-task-013.md",
     "docs/reports/k3/2026-09-24-task-014.md",
     "docs/reports/k3/2026-09-24-task-015.md",
+    "docs/reports/k3/2026-09-24-task-017.md",
     "docs/reports/k3/README.md",
     "docs/research/README.md",
     "docs/research/UNA_Deep_Research_v4.1_2026-09-15.md",
@@ -172,6 +173,7 @@
     "docs/tasks/k3/TASK-014-wave3-state-tests.md",
     "docs/tasks/k3/TASK-015-routing-tests.md",
     "docs/tasks/k3/TASK-016-wave3-media-review.md",
+    "docs/tasks/k3/TASK-017-f1-dedup-fix.md",
     "electron-builder.yml",
     "electron/agents/index.ts",
     "electron/agents/rlm-extensions.ts",
@@ -346,6 +348,7 @@
     "tests/ai/code-tools.test.ts",
     "tests/ai/compression.test.ts",
     "tests/ai/executive.test.ts",
+    "tests/ai/f1-dedup.test.ts",
     "tests/ai/fast-path.test.ts",
     "tests/ai/goal-tracker.test.ts",
     "tests/ai/identity.test.ts",

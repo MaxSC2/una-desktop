@@ -273,7 +273,9 @@ function registerIpcHandlers(): void {
     });
 
     // Строим ДИНАМИЧЕСКИЙ промпт (вместо статического)
-    const allRecent = getRecentMessages(convId, 20).map((m) => ({ role: m.role, content: m.content }));
+    // F1/Q-002: последний элемент — только что сохранённое user-сообщение;
+    // исключаем его, иначе executeToolLoop добавит text второй раз (дубль).
+    const allRecent = getRecentMessages(convId, 20).map((m) => ({ role: m.role, content: m.content })).slice(0, -1);
     const dynamicPrompt = await buildDynamicPrompt(text, {
       emotion,
       timeOfDay,
@@ -377,7 +379,9 @@ function registerIpcHandlers(): void {
       timestamp: new Date().toISOString(),
     });
 
-    const allRecent = getRecentMessages(convId, 20).map((m) => ({ role: m.role, content: m.content }));
+    // F1/Q-002: исключаем последнее (только что сохранённое) user-сообщение —
+    // иначе executeToolLoop добавит text второй раз (дубль).
+    const allRecent = getRecentMessages(convId, 20).map((m) => ({ role: m.role, content: m.content })).slice(0, -1);
     const dynamicPrompt = await buildDynamicPrompt(text, {
       emotion,
       timeOfDay,

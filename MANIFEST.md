@@ -72,7 +72,7 @@ tests/      Unit и integration tests.
 > Источник правды: `scripts/manifest-files.json`. Обновление: `node scripts/sync-manifest.js`.
 > Не редактировать вручную — блок перезаписывается.
 
-> **Всего файлов:** 335 · **Сгенерировано:** 2026-09-29
+> **Всего файлов:** 338 · **Сгенерировано:** 2026-09-29
 
 ```
 ## .github (3)
@@ -143,7 +143,7 @@ tests/      Unit и integration tests.
   assets/sprites/una_32.png
   assets/sprites/una_33.png
 
-## docs (82)
+## docs (84)
   docs/ARCHITECTURE.md
   docs/BACKGROUND.md
   docs/CODE.md
@@ -189,6 +189,7 @@ tests/      Unit и integration tests.
   docs/reports/k3/2026-09-24-task-013.md
   docs/reports/k3/2026-09-24-task-014.md
   docs/reports/k3/2026-09-24-task-015.md
+  docs/reports/k3/2026-09-24-task-017.md
   docs/reports/k3/README.md
   docs/research/README.md
   docs/research/UNA_Deep_Research_v4.1_2026-09-15.md
@@ -226,6 +227,7 @@ tests/      Unit и integration tests.
   docs/tasks/k3/TASK-014-wave3-state-tests.md
   docs/tasks/k3/TASK-015-routing-tests.md
   docs/tasks/k3/TASK-016-wave3-media-review.md
+  docs/tasks/k3/TASK-017-f1-dedup-fix.md
 
 ## electron (82)
   electron/agents/index.ts
@@ -393,13 +395,14 @@ tests/      Unit и integration tests.
   src/main.tsx
   src/styles/index.css
 
-## tests (33)
+## tests (34)
   tests/ai/attention-manager.test.ts
   tests/ai/background-monitor.test.ts
   tests/ai/code-tools-integration.test.ts
   tests/ai/code-tools.test.ts
   tests/ai/compression.test.ts
   tests/ai/executive.test.ts
+  tests/ai/f1-dedup.test.ts
   tests/ai/fast-path.test.ts
   tests/ai/goal-tracker.test.ts
   tests/ai/identity.test.ts
