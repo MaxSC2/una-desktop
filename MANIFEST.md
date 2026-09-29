@@ -72,7 +72,7 @@ tests/      Unit и integration tests.
 > Источник правды: `scripts/manifest-files.json`. Обновление: `node scripts/sync-manifest.js`.
 > Не редактировать вручную — блок перезаписывается.
 
-> **Всего файлов:** 332 · **Сгенерировано:** 2026-09-29
+> **Всего файлов:** 335 · **Сгенерировано:** 2026-09-29
 
 ```
 ## .github (3)
@@ -143,7 +143,7 @@ tests/      Unit и integration tests.
   assets/sprites/una_32.png
   assets/sprites/una_33.png
 
-## docs (80)
+## docs (82)
   docs/ARCHITECTURE.md
   docs/BACKGROUND.md
   docs/CODE.md
@@ -183,6 +183,7 @@ tests/      Unit и integration tests.
   docs/history/planning/TASK_BOARD_2026-07.md
   docs/reports/k3/2026-09-22-task-001.md
   docs/reports/k3/2026-09-23-wave2-task-002-011.md
+  docs/reports/k3/2026-09-24-task-004-fix.md
   docs/reports/k3/2026-09-24-task-004-inv.md
   docs/reports/k3/2026-09-24-task-012.md
   docs/reports/k3/2026-09-24-task-013.md
@@ -211,6 +212,7 @@ tests/      Unit и integration tests.
   docs/tasks/k3/TASK-002-resource-manager-tests.md
   docs/tasks/k3/TASK-003-states-modes-tests.md
   docs/tasks/k3/TASK-004-attention-manager-tests.md
+  docs/tasks/k3/TASK-004-mcp-disconnect-fix.md
   docs/tasks/k3/TASK-004-mcp-disconnect-inv.md
   docs/tasks/k3/TASK-005-monologue-tests.md
   docs/tasks/k3/TASK-006-world-model-tests.md
@@ -391,7 +393,7 @@ tests/      Unit и integration tests.
   src/main.tsx
   src/styles/index.css
 
-## tests (32)
+## tests (33)
   tests/ai/attention-manager.test.ts
   tests/ai/background-monitor.test.ts
   tests/ai/code-tools-integration.test.ts
@@ -403,6 +405,7 @@ tests/      Unit и integration tests.
   tests/ai/identity.test.ts
   tests/ai/intent.test.ts
   tests/ai/life-loop.test.ts
+  tests/ai/mcp-disconnect.test.ts
   tests/ai/meta-learning.test.ts
   tests/ai/modes.test.ts
   tests/ai/monologue.test.ts

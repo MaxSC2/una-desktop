@@ -981,6 +981,8 @@ app.on('before-quit', () => {
   stopReminderChecker();
   stopTelegramBot();
   closeMemory();
+  // F15/Q-004: гасим stdio-детей MCP — иначе переживают выход (тело disconnectAll синхронно).
+  void mcpAdapter.disconnectAll();
   globalShortcut.unregisterAll();
 });
 
