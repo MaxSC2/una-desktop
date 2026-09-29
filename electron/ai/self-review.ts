@@ -23,6 +23,33 @@ export interface ReviewSummary {
 let inMemoryReviews: ReviewEntry[] = [];
 const MAX_REVIEWS_IN_MEMORY = 20;
 
+// Границы слова с поддержкой кириллицы (Fix 0, TASK-016 — тот же подход, что TASK-013/Q-META):
+// в JS \w = [A-Za-z0-9_], поэтому \b мёртв рядом с А-Я (чисто русский текст не матчился).
+// wbr — полное слово (обе границы), wbs — стем-префикс (только начальная граница).
+const WB_START = '(?:(?<![A-Za-zА-Яа-яЁё0-9_]))';
+const WB_END = '(?:(?![A-Za-zА-Яа-яЁё0-9_]))';
+
+// Check 2: стемы (погод-, новост-, ...) — wbs; полные слова — wbr.
+const NEEDS_WEB_RE = new RegExp(
+  `${WB_START}(?:погод|новост|актуальн|последн)` +
+  `|${WB_START}(?:курс|доллар|евро|сейчас|сегодня|новый|вышел)${WB_END}`,
+  'i'
+);
+// Check 4: 'здравствуй' — стем (здравствуйте), 'привет'/'добрый' — полные слова.
+const GREETING_RE = new RegExp(
+  `${WB_START}здравствуй|${WB_START}(?:привет|добрый)${WB_END}`,
+  'i'
+);
+const USER_GREETED_RE = new RegExp(
+  `${WB_START}здравствуй|${WB_START}привет${WB_END}`,
+  'i'
+);
+// Check 7: все префиксы — полные слова.
+const ANSWER_PREFIX_RE = new RegExp(
+  `${WB_START}(?:да|нет|конечно|разумеется|вот)${WB_END}`,
+  'i'
+);
+
 export function reviewResponse(
   userMessage: string,
   assistantResponse: string,
@@ -163,7 +190,7 @@ function runChecks(
   // Check 2: Tool usage
   if (options.toolCallCount !== undefined) {
     if (options.toolCallCount === 0) {
-      const needsWeb = /\b(погод|новост|курс|доллар|евро|актуальн|последн|сейчас|сегодня|новый|вышел)\b/i.test(lowerUser);
+      const needsWeb = NEEDS_WEB_RE.test(lowerUser);
       if (needsWeb) {
         weaknesses.push('Не использован web_search для актуальной информации');
         lessons.push('Для вопросов о погоде, новостях, курсах валют — ОБЯЗАТЕЛЬНО вызывай web_search');
@@ -182,8 +209,8 @@ function runChecks(
   }
 
   // Check 4: Tone check
-  const hasGreeting = /\b(здравствуй|привет|добрый)\b/i.test(lowerResp);
-  const userGreeted = /\b(привет|здравствуй)\b/i.test(lowerUser);
+  const hasGreeting = GREETING_RE.test(lowerResp);
+  const userGreeted = USER_GREETED_RE.test(lowerUser);
   if (userGreeted && !hasGreeting) {
     weaknesses.push('Не поприветствовала пользователя в ответ');
     score -= 0.5;
@@ -206,7 +233,7 @@ function runChecks(
 
   // Check 7: Direct answer
   const questionMarks = (userMessage.match(/\?/g) || []).length;
-  const answerPrefixes = /\b(да|нет|конечно|разумеется|вот)\b/i.test(lowerResp.slice(0, 100));
+  const answerPrefixes = ANSWER_PREFIX_RE.test(lowerResp.slice(0, 100));
   if (questionMarks > 0 && !answerPrefixes && response.length > 200) {
     weaknesses.push('Нет прямого ответа на вопрос');
     lessons.push('Отвечай на вопрос прямо в первом предложении');
